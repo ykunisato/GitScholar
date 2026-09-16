@@ -149,6 +149,7 @@
   "contextSent": "AIに送信される文脈",
   "continueLabel": "続ける",
   "continuePrompt": "続けてください",
+  "copy": "コピー",
   "copied": "コピーしました",
   "copyPath": "パスをコピー",
   "defaultKernel": "既定のカーネル",
@@ -533,5 +534,55 @@
       }
     }
   },
-  "offlineOpenRepoFirst": "リポジトリを開いてから設定します"
+  "offlineOpenRepoFirst": "リポジトリを開いてから設定します",
+  "aiProvider": "提供元",
+  "aiProviderHelp": "Anthropic のほか、OpenAI 互換の提供元を使えます",
+  "aiProviderLimitations": "この提供元では、思考の要約・プロンプトキャッシュ・effort は使われません。ツール利用に対応したモデルを選んでください。",
+  "aiBaseUrl": "接続先 URL",
+  "aiBaseUrlHelp": "未入力なら提供元の標準の URL を使います",
+  "apiKeyFor": "{provider} の APIキー",
+  "@apiKeyFor": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "aiModelMissing": "モデルIDを入力してください",
+  "modelHintOpenAi": "モデルID",
+  "modelHintOpenRouter": "提供元/モデル名",
+  "modelHelp": "提供元のモデル一覧にある ID を入力します",
+  "pdfHighlight": "マーカー",
+  "pdfHighlightAdded": "マーカーを追加しました",
+  "pdfHighlights": "マーカー一覧",
+  "pdfNoHighlights": "マーカーはまだありません",
+  "colorYellow": "黄",
+  "colorGreen": "緑",
+  "colorBlue": "青",
+  "colorPink": "ピンク",
+  "pdfNotes": "メモ",
+  "pdfNoteAdd": "メモを追加",
+  "pdfNoteHint": "このPDFへのメモ…",
+  "pdfNotesEmpty": "メモはまだありません",
+  "pdfNoteSaved": "{path} に追記しました",
+  "@pdfNoteSaved": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "threads": "スレッド",
+  "discussions": "Discussion",
+  "issues": "Issues",
+  "threadsDisabled": "このリポジトリではDiscussionが有効になっていません",
+  "noThreads": "スレッドがありません",
+  "threadClosed": "クローズ済み",
+  "addComment": "コメントする",
+  "commentHint": "コメントを書く…",
+  "commentPosted": "コメントを投稿しました",
+  "repoListShort": "一覧",
+  "repoListHint": "リポジトリ一覧に戻る",
+  "reactions": "リアクション",
+  "addReaction": "リアクションを追加"
 }

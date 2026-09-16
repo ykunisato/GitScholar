@@ -1,7 +1,7 @@
-/// Error from the Anthropic API or transport.
-class AnthropicApiException implements Exception {
+/// Error from a model provider or the transport.
+class LlmApiException implements Exception {
   /// Creates the exception.
-  const AnthropicApiException(
+  const LlmApiException(
     this.statusCode,
     this.message, {
     this.type,
@@ -39,5 +39,8 @@ class AnthropicApiException implements Exception {
   bool get isRateLimited => statusCode == 429 || type == 'rate_limit_error';
 
   @override
-  String toString() => 'AnthropicApiException($statusCode, $type, $message)';
+  String toString() => 'LlmApiException($statusCode, $type, $message)';
 }
+
+/// Former name, kept so existing call sites keep working.
+typedef AnthropicApiException = LlmApiException;

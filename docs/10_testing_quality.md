@@ -5,18 +5,19 @@
 | 層 | 対象 | ツール | 場所 |
 |---|---|---|---|
 | 純Dartユニット | `packages/*`（パーサ、diff、APIクライアント、SSE、エージェントループ） | `package:test`, `http.MockClient` | `packages/<name>/test/` |
-| アプリユニット | Domain services、Application ユースケース、Infrastructure（drift はインメモリ `NativeDatabase.memory()`） | `flutter_test`, `mocktail` | `test/` (lib と同じ階層) |
+| アプリユニット | Domain services、Application ユースケース、Infrastructure（drift はインメモリ `NativeDatabase.memory()`） | `flutter_test`。モックは使わず `test/fakes/` の手書きフェイク | `test/` (lib と同じ階層) |
 | ウィジェット | 各ビューア、AgentPane、ChangesScreen、CommitSheet | `flutter_test`, `ProviderScope(overrides)` | `test/presentation/` |
-| ゴールデン | Notebook/Markdown の描画（主要fixture） | `flutter_test` の `matchesGoldenFile` | `test/goldens/` |
+| ゴールデン | Notebook/Markdown の描画（主要fixture） | `flutter_test` の `matchesGoldenFile` | `test/goldens/`（**未導入**） |
+| 手動のみ | Discussion / Issues とリアクション（GraphQL） | クエリの形と応答の解釈は `packages/github_api/test` のモックHTTPで、画面操作は `test/fakes/fake_github.dart` で検証する。実GitHubとの疎通だけが手動 | `docs/manual_test_checklist.md` |
 | 手動のみ | PDF ビューア（pdfrx） | ネイティブの pdfium と `path_provider` が必要で、`flutter_test` では `MissingPluginException` になる。実機・シミュレータで確認する | `docs/manual_test_checklist.md` |
-| 統合 | UC-1〜UC-3 の主要経路（GitHub / Anthropic はローカルのフェイクHTTPサーバー） | `integration_test` | `integration_test/` |
+| 統合 | UC-1〜UC-3 の主要経路（GitHub / Anthropic はローカルのフェイクHTTPサーバー） | `integration_test` | `integration_test/`（**未導入**） |
 | 手動 | 実機での性能（NFR-1x）、オフライン（NFR-20）、アクセシビリティ | チェックリスト | `docs/manual_test_checklist.md`（Phase 1 末に作成） |
 
 ## 2. フェイクとフィクスチャ
 
 - `test/fakes/fake_github.dart`: `GitHubRepository` を実装したインメモリの Git（blobs / trees / commits / refs）。Git Data API と Contents API の意味論（fast-forward 検査、sha 不一致の競合）を再現する（ADR-0009）。HTTP の形は `packages/github_api/test` で検証する。
 - `test/fakes/fake_anthropic.dart`: 台本（scripted）方式。「このリクエストが来たらこのSSEイベント列を返す」を定義できる。`tool_use` を返して次のリクエストで `tool_result` を検証する。
-- `test/fixtures/`: `.ipynb`（05 §6）、`.md`（GFM要素、数式、相対リンク）、小さい `.pdf`（テキスト抽出可能なもの、2ページ）、Git ツリーJSON。
+- フィクスチャは現状テスト内に直接書いている（`FakeGitHub.seed({path: content})` など）。大きくなったら `test/fixtures/` に切り出す: `.ipynb`（05 §6）、`.md`（GFM要素、数式、相対リンク）、小さい `.pdf`、Git ツリーJSON。
 
 ## 3. CI（`.github/workflows/ci.yml`）
 
@@ -49,7 +50,7 @@ jobs:
 ## 4. コーディング規約
 
 - `analysis_options.yaml`: `flutter_lints` + 追加ルール `prefer_final_locals`, `avoid_dynamic_calls`, `unawaited_futures`, `require_trailing_commas`, `always_declare_return_types`, `public_member_api_docs`（`packages/*` のみ）。
-- ファイル名 snake_case、クラス PascalCase、Provider は `xxxProvider`（生成）。
+- ファイル名 snake_case、クラス PascalCase、Provider は `xxxProvider`（手書き。riverpod_generator は不採用。ADR-0009）。
 - 1ファイル 400 行を目安。超えたら分割。
 - コメントは「なぜ」を書く。設計書の該当節を `// See docs/06_editing_diff_commit.md §4` の形で参照する。
 - `print` 禁止（`AppLogger` を使う）。

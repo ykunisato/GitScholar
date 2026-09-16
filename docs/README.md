@@ -33,7 +33,9 @@
 1. アプリは **Flutter** で iOS / Android を単一コードベースで実装する（ADR-0001）。
 2. Git操作は端末内にGitを実装せず **GitHub REST API** で行う（ADR-0002）。
 3. GitHub認証は **OAuth Device Flow** で行い、アプリにクライアントシークレットを持たせない（ADR-0003）。
-4. AI呼び出しは当面 **ユーザー自身のAnthropic APIキー（BYOK）** でアプリから直接行い、エージェントループもアプリ内で回す（ADR-0004, ADR-0005）。
+4. AI呼び出しは **ユーザー自身のAPIキー（BYOK）** でアプリから直接行い、エージェントループもアプリ内で回す（ADR-0004, ADR-0005）。提供元は Anthropic のほか OpenAI 互換を選べる（ADR-0010）。
 5. Python / R / Quarto の実行は端末内で行わず、**Jupyter Server / JupyterHub** に委ねる（ADR-0006）。
 6. ビジネスロジックのうちUIに依存しない部分は **純Dartパッケージ**（`packages/`）に切り出し、Flutter無しでテストできるようにする（ADR-0007）。
 7. コード生成は drift と l10n のみ。HTTP は `http`、キャッシュはシステム+自動、古いツール結果はサーバー側コンテキスト編集（ADR-0009）。
+8. PDFのハイライトは `<pdf名>.annotations.json`、メモは `<pdf名>.md` として、どちらもリポジトリ内の普通のファイルに保存する（ADR-0008, ADR-0011）。
+9. Discussion とリアクションは REST に無いため GraphQL を併用する。Issues 本体は REST のまま（ADR-0012）。

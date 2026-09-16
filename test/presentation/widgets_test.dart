@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_dynamic_calls
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gitscholar/domain/entities/entities.dart';
@@ -21,6 +22,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../fakes/app_harness.dart';
 import '../fakes/fake_anthropic.dart';
+import '../fakes/fake_github.dart';
 import '../fakes/test_env.dart';
 
 Future<void> settle(WidgetTester tester) async {
@@ -115,13 +117,32 @@ void main() {
     await disposeTree(tester);
   });
 
-  testWidgets('sign-in shows device code while pending', (tester) async {
+  testWidgets('sign-in shows device code and copies it on tap', (tester) async {
+    // SelectableText swallows taps, so the copy action has to be wired to it
+    // and not only to the surrounding InkWell.
+    final copied = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied.add(((call.arguments as Map)['text'] ?? '') as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
     await tester.pumpWidget(
       harness(env, child: const SignInScreen(), auth: _PendingAuth.new),
     );
     await settle(tester);
     expect(find.text('ABCD-1234'), findsOneWidget);
     expect(find.text('Open in browser'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('userCode')));
+    await settle(tester);
+    expect(copied, ['ABCD-1234']);
     await disposeTree(tester);
   });
 
@@ -178,6 +199,104 @@ void main() {
     await settle(tester);
     expect(container.read(shellProvider).phonePane, PhonePane.viewer);
     expect(container.read(openFilesProvider).active, 'README.md');
+    await disposeTree(tester);
+  });
+
+  testWidgets('the viewer is never shown without a file', (tester) async {
+    final container = await openShell(tester, const Size(420, 800));
+    expect(container.read(openFilesProvider).active, isNull);
+    // The viewer has no tab of its own; asking for it lands on the files.
+    container.read(shellProvider.notifier).showPane(PhonePane.viewer);
+    await settle(tester);
+    expect(container.read(shellProvider).phonePane, PhonePane.files);
+
+    await tester.tap(find.text('README.md'));
+    await settle(tester);
+    expect(container.read(shellProvider).phonePane, PhonePane.viewer);
+
+    container.read(openFilesProvider.notifier).close('README.md');
+    await settle(tester);
+    expect(container.read(shellProvider).phonePane, PhonePane.files);
+    await disposeTree(tester);
+  });
+
+  testWidgets('threads pane lists discussions and posts a comment', (
+    tester,
+  ) async {
+    final thread = env.github.seedThread(
+      kind: ThreadKind.discussion,
+      number: 7,
+      title: 'Weekly meeting',
+      body: 'agenda',
+    );
+    await openShell(tester, const Size(420, 800));
+    await tester.tap(find.text('Threads'));
+    await settle(tester);
+    expect(find.text('Weekly meeting'), findsOneWidget);
+
+    await tester.tap(find.text('Weekly meeting'));
+    await settle(tester);
+    expect(find.byKey(const Key('threadComment')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('threadComment')),
+      'looks good',
+    );
+    await tester.tap(find.byKey(const Key('threadSend')));
+    await settle(tester);
+    expect(
+      env.github.threadComments[FakeGitHub.threadKey(thread)]!.single.body,
+      'looks good',
+    );
+    await disposeTree(tester);
+  });
+
+  testWidgets('a reaction can be added and taken back', (tester) async {
+    env.github.seedThread(
+      kind: ThreadKind.discussion,
+      number: 7,
+      title: 'Weekly meeting',
+      body: 'agenda',
+    );
+    await openShell(tester, const Size(420, 800));
+    await tester.tap(find.text('Threads'));
+    await settle(tester);
+    await tester.tap(find.text('Weekly meeting'));
+    await settle(tester);
+
+    await tester.tap(find.byKey(const Key('post-addReaction')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('pick-rocket')));
+    await settle(tester);
+    expect(
+      env.github.reactions['node:discussion#7'],
+      contains(ReactionKind.rocket),
+    );
+    expect(find.byKey(const Key('post-reaction-rocket')), findsOneWidget);
+
+    // Tapping the chip again takes the reaction back.
+    await tester.tap(find.byKey(const Key('post-reaction-rocket')));
+    await settle(tester);
+    expect(env.github.reactions['node:discussion#7'], isEmpty);
+    expect(find.byKey(const Key('post-reaction-rocket')), findsNothing);
+    await disposeTree(tester);
+  });
+
+  testWidgets('threads pane switches to issues', (tester) async {
+    env.github.seedThread(
+      kind: ThreadKind.issue,
+      number: 3,
+      title: 'Fix the parser',
+    );
+    await openShell(tester, const Size(420, 800));
+    await tester.tap(find.text('Threads'));
+    await settle(tester);
+    expect(find.text('Fix the parser'), findsNothing);
+
+    await tester.tap(find.text('Issues'));
+    await settle(tester);
+    expect(find.text('Fix the parser'), findsOneWidget);
+    expect(env.github.calls, contains('issues'));
     await disposeTree(tester);
   });
 

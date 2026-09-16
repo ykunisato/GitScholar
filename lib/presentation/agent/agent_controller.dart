@@ -173,10 +173,32 @@ class AgentController extends Notifier<AgentState> {
       prev,
       next,
     ) {
-      if (prev != next) newConversation();
+      // Closing the repository keeps the session, so going back to the list
+      // and returning does not throw the conversation away (FR-66).
+      if (next == null || next == prev) return;
+      if (state.conversation?.repoFullName == next) return;
+      unawaited(_switchRepository(next));
     });
     ref.onDispose(() => _sub?.cancel());
     return const AgentState();
+  }
+
+  /// Starts a session for [repoFullName], restoring its most recent saved
+  /// conversation when there is one.
+  Future<void> _switchRepository(String repoFullName) async {
+    newConversation();
+    final saved = await ref
+        .read(databaseProvider)
+        .conversationsFor(repoFullName);
+    if (!ref.mounted || saved.isEmpty) return;
+    // The user may have moved on again while the database was read.
+    if (ref.read(currentWorkspaceProvider).value?.repo.fullName !=
+            repoFullName ||
+        state.conversation != null ||
+        state.items.isNotEmpty) {
+      return;
+    }
+    await load(saved.first);
   }
 
   void _touch() => state = state.copyWith();
@@ -249,9 +271,10 @@ class AgentController extends Notifier<AgentState> {
     final ws = ref.read(currentWorkspaceProvider).value;
     if (ws == null) return;
     if (ws.repo.effectiveAiAccess == AiAccess.denied) return;
+    final settings = ref.read(currentSettingsProvider);
     final key = await ref
         .read(secureStoreProvider)
-        .read(SecureStore.anthropicKey);
+        .read(SecureStore.apiKeyFor(settings.aiProvider));
     if (key == null) {
       state = state.copyWith(
         items: [
@@ -262,7 +285,6 @@ class AgentController extends Notifier<AgentState> {
       );
       return;
     }
-    final settings = ref.read(currentSettingsProvider);
     final rules = await ref.read(ignoreRulesProvider.future);
     final service = ref.read(agentServiceProvider);
 

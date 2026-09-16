@@ -9,7 +9,11 @@ GitHub 上の論文・研究ノート・Jupyter Notebook・分析コードを iP
 - GitHub サインイン（OAuth Device Flow）とリポジトリ選択
 - ファイルツリー、PDF・Markdown（数式・相対リンク）・Notebook・コード・画像の表示
 - テキスト・Markdown・Notebook の編集、差分表示、コミットとプッシュ（競合検出つき）
-- AI パネル（Claude）: 開いているファイルへの質問、リポジトリ検索、変更提案と承認、コミット依頼
+- AI パネル: 開いているファイルへの質問、リポジトリ検索、変更提案と承認、コミット依頼
+- AI の提供元は Anthropic、OpenAI、OpenRouter、OpenAI互換の自前サーバから選択（設定画面、鍵は提供元ごとに保存）
+- GitHub Discussion / Issues の閲覧、コメント投稿、絵文字リアクション
+- PDF のマーカーと、PDFと同名の Markdown へのメモ追記
+- リポジトリのピン留め（最大10件）とオフライン保存
 - Jupyter Server / JupyterHub でのセル実行、Quarto render（任意）
 
 ## 必要なもの
@@ -20,7 +24,7 @@ GitHub 上の論文・研究ノート・Jupyter Notebook・分析コードを iP
 | iOS | Xcode 26 以上、iOS 16 以上 |
 | Android | Android SDK、JDK 17、Android 9（API 28）以上 |
 | GitHub | Device Flow を有効にした OAuth App の Client ID |
-| AI | 各ユーザーの Anthropic API キー（アプリの設定画面で入力） |
+| AI | 利用する提供元の API キー（アプリの設定画面で入力。Anthropic / OpenAI / OpenRouter など） |
 
 ## セットアップ
 

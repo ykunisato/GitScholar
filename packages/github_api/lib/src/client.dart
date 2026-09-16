@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'dto.dart';
 import 'exception.dart';
+import 'threads.dart';
 
 /// Stores ETags and cached bodies for conditional requests.
 abstract class ETagCache {
@@ -346,6 +347,231 @@ class GitHubClient {
       commitSha: commit['sha'] as String,
       treeSha: (commit['tree'] as Map<String, dynamic>)['sha'] as String,
     );
+  }
+
+  // ------------------------------------------------- issues / discussions
+
+  /// `GET /repos/{owner}/{repo}/issues`, newest activity first.
+  ///
+  /// Pull requests are returned by the same endpoint and are filtered out.
+  Future<List<IssueDto>> listIssues(
+    String owner,
+    String name, {
+    int perPage = 30,
+    bool openOnly = true,
+  }) async {
+    final res = await _send(
+      'GET',
+      '${_repoPath(owner, name)}/issues'
+          '?per_page=$perPage&sort=updated&direction=desc'
+          '&state=${openOnly ? 'open' : 'all'}',
+    );
+    return [
+      for (final i in jsonDecode(res.body) as List)
+        if (!IssueDto.isPullRequest(i as Map<String, dynamic>))
+          IssueDto.fromJson(i),
+    ];
+  }
+
+  /// `GET /repos/{owner}/{repo}/issues/{number}`.
+  Future<IssueDto> getIssue(String owner, String name, int number) async =>
+      IssueDto.fromJson(
+        _obj(
+          (await _send('GET', '${_repoPath(owner, name)}/issues/$number')).body,
+        ),
+      );
+
+  /// `GET /repos/{owner}/{repo}/issues/{number}/comments`.
+  Future<List<ThreadCommentDto>> listIssueComments(
+    String owner,
+    String name,
+    int number, {
+    int perPage = 100,
+  }) async {
+    final res = await _send(
+      'GET',
+      '${_repoPath(owner, name)}/issues/$number/comments?per_page=$perPage',
+    );
+    return [
+      for (final c in jsonDecode(res.body) as List)
+        ThreadCommentDto.fromIssueJson(c as Map<String, dynamic>),
+    ];
+  }
+
+  /// `POST /repos/{owner}/{repo}/issues/{number}/comments`.
+  Future<ThreadCommentDto> createIssueComment(
+    String owner,
+    String name,
+    int number,
+    String body,
+  ) async {
+    final res = await _send(
+      'POST',
+      '${_repoPath(owner, name)}/issues/$number/comments',
+      body: {'body': body},
+    );
+    return ThreadCommentDto.fromIssueJson(_obj(res.body));
+  }
+
+  /// `POST /graphql`. Returns the `data` object.
+  ///
+  /// Discussions have no REST API, so they go through GraphQL (ADR-0012).
+  /// GraphQL answers 200 even for query errors, so `errors` is checked here.
+  Future<Map<String, dynamic>> graphql(
+    String query, {
+    Map<String, dynamic> variables = const {},
+  }) async {
+    final res = await _send(
+      'POST',
+      '/graphql',
+      body: {'query': query, 'variables': variables},
+    );
+    final j = _obj(res.body);
+    final errors = j['errors'];
+    if (errors is List && errors.isNotEmpty) {
+      final first = errors.first;
+      final message = first is Map && first['message'] is String
+          ? first['message'] as String
+          : 'GraphQL error';
+      throw GitHubApiException(
+        res.statusCode,
+        message,
+        errorCode: first is Map ? first['type'] as String? : null,
+      );
+    }
+    final data = j['data'];
+    if (data is! Map<String, dynamic>) {
+      throw GitHubApiException(res.statusCode, 'Empty GraphQL response');
+    }
+    return data;
+  }
+
+  /// `reactors` takes pagination arguments, so a page size is always given
+  /// even though only the total is read.
+  static const _reactionFields =
+      'reactionGroups{content viewerHasReacted reactors(first:1){totalCount}}';
+
+  static const _discussionFields =
+      'id number title url updatedAt author { login } '
+      'category { name }';
+
+  /// Lists discussions, newest activity first.
+  ///
+  /// Returns null when the repository has discussions turned off.
+  Future<List<DiscussionDto>?> listDiscussions(
+    String owner,
+    String name, {
+    int first = 30,
+  }) async {
+    final data = await graphql(
+      'query(\$owner:String!,\$name:String!,\$first:Int!){'
+      'repository(owner:\$owner,name:\$name){'
+      'hasDiscussionsEnabled '
+      'discussions(first:\$first,orderBy:{field:UPDATED_AT,direction:DESC})'
+      '{nodes{$_discussionFields comments{totalCount}}}}}',
+      variables: {'owner': owner, 'name': name, 'first': first},
+    );
+    final repo = data['repository'] as Map<String, dynamic>?;
+    if (repo == null) {
+      throw const GitHubApiException(404, 'Repository not found');
+    }
+    if (repo['hasDiscussionsEnabled'] == false) return null;
+    final nodes =
+        (repo['discussions'] as Map<String, dynamic>?)?['nodes'] as List?;
+    return [
+      for (final d in nodes ?? const <Object?>[])
+        DiscussionDto.fromGraphQl(d as Map<String, dynamic>),
+    ];
+  }
+
+  /// Reads one discussion with its comments.
+  Future<DiscussionDto> getDiscussion(
+    String owner,
+    String name,
+    int number, {
+    int firstComments = 100,
+  }) async {
+    final data = await graphql(
+      'query(\$owner:String!,\$name:String!,\$number:Int!,\$first:Int!){'
+      'repository(owner:\$owner,name:\$name){'
+      'discussion(number:\$number){$_discussionFields body '
+      '$_reactionFields '
+      'comments(first:\$first){totalCount nodes{id body createdAt '
+      'author{login} $_reactionFields}}}}}',
+      variables: {
+        'owner': owner,
+        'name': name,
+        'number': number,
+        'first': firstComments,
+      },
+    );
+    final d =
+        (data['repository'] as Map<String, dynamic>?)?['discussion']
+            as Map<String, dynamic>?;
+    if (d == null) throw const GitHubApiException(404, 'Discussion not found');
+    return DiscussionDto.fromGraphQl(d);
+  }
+
+  /// Adds a comment to a discussion. [discussionId] is the GraphQL node id.
+  Future<ThreadCommentDto> createDiscussionComment(
+    String discussionId,
+    String body,
+  ) async {
+    final data = await graphql(
+      'mutation(\$id:ID!,\$body:String!){'
+      'addDiscussionComment(input:{discussionId:\$id,body:\$body})'
+      '{comment{id body createdAt author{login}}}}',
+      variables: {'id': discussionId, 'body': body},
+    );
+    final c =
+        (data['addDiscussionComment'] as Map<String, dynamic>?)?['comment']
+            as Map<String, dynamic>?;
+    if (c == null) {
+      throw const GitHubApiException(422, 'Comment was not created');
+    }
+    return ThreadCommentDto.fromGraphQl(c);
+  }
+
+  /// Reads the reactions of any reactable nodes (issues, discussions and
+  /// their comments), keyed by node id.
+  Future<Map<String, List<ReactionGroupDto>>> reactionsFor(
+    List<String> nodeIds,
+  ) async {
+    final ids = [
+      for (final id in nodeIds)
+        if (id.isNotEmpty) id,
+    ];
+    if (ids.isEmpty) return const {};
+    final data = await graphql(
+      'query(\$ids:[ID!]!){nodes(ids:\$ids){id ... on Reactable{'
+      '$_reactionFields}}}',
+      variables: {'ids': ids},
+    );
+    final out = <String, List<ReactionGroupDto>>{};
+    for (final n in (data['nodes'] ?? const <Object?>[]) as List) {
+      if (n is! Map<String, dynamic>) continue;
+      out['${n['id']}'] = ReactionGroupDto.listFrom(n['reactionGroups']);
+    }
+    return out;
+  }
+
+  /// Adds or removes the signed-in user's reaction and returns the subject's
+  /// reactions afterwards. [content] is a `ReactionContent` value.
+  Future<List<ReactionGroupDto>> react(
+    String subjectId,
+    String content, {
+    required bool add,
+  }) async {
+    final name = add ? 'addReaction' : 'removeReaction';
+    final data = await graphql(
+      'mutation(\$id:ID!,\$content:ReactionContent!){'
+      '$name(input:{subjectId:\$id,content:\$content})'
+      '{reactionGroups{content viewerHasReacted '
+      'reactors(first:1){totalCount}}}}',
+      variables: {'id': subjectId, 'content': content},
+    );
+    final payload = data[name] as Map<String, dynamic>?;
+    return ReactionGroupDto.listFrom(payload?['reactionGroups']);
   }
 
   /// `GET /rate_limit`.

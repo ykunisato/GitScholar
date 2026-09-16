@@ -20,6 +20,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _apiKey = TextEditingController();
+  final _baseUrl = TextEditingController();
+  final _model = TextEditingController();
   final _jupyterUrl = TextEditingController();
   final _jupyterToken = TextEditingController();
   bool _hasApiKey = false;
@@ -37,14 +39,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _load() async {
     final secure = ref.read(secureStoreProvider);
-    final key = await secure.read(SecureStore.anthropicKey);
-    final jt = await secure.read(SecureStore.jupyterToken);
     final s = await ref.read(settingsProvider.future);
+    final key = await secure.read(SecureStore.apiKeyFor(s.aiProvider));
+    final jt = await secure.read(SecureStore.jupyterToken);
     if (!mounted) return;
     setState(() {
       _hasApiKey = key != null;
       _hasJupyterToken = jt != null;
       _jupyterUrl.text = s.jupyterBaseUrl ?? '';
+      _baseUrl.text = s.aiBaseUrl ?? '';
+      _model.text = s.aiModel;
       _loaded = true;
     });
   }
@@ -52,6 +56,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _apiKey.dispose();
+    _baseUrl.dispose();
+    _model.dispose();
     _jupyterUrl.dispose();
     _jupyterToken.dispose();
     super.dispose();
@@ -72,18 +78,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _testAi() async {
     final l = context.l10n;
     setState(() => _aiTest = l.testing);
+    final s = ref.read(currentSettingsProvider);
     final key = await ref
         .read(secureStoreProvider)
-        .read(SecureStore.anthropicKey);
+        .read(SecureStore.apiKeyFor(s.aiProvider));
     if (key == null) {
       setState(() => _aiTest = l.apiKeyMissing);
       return;
     }
-    final s = ref.read(currentSettingsProvider);
+    if (s.aiModel.trim().isEmpty) {
+      setState(() => _aiTest = l.aiModelMissing);
+      return;
+    }
+    final client = ref.read(llmClientFactoryProvider)(key);
     try {
-      final client = ref.read(anthropicClientFactoryProvider)(key);
       await client
-          .streamMessage(
+          .streamTurn(
             MessageRequest(
               model: s.aiModel,
               maxTokens: 64,
@@ -93,10 +103,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           )
           .drain<void>();
       if (mounted) setState(() => _aiTest = l.connectionOk);
-    } on AnthropicApiException catch (e) {
+    } on LlmApiException catch (e) {
       if (mounted) {
         setState(() => _aiTest = e.isAuthError ? l.apiKeyInvalid : e.message);
       }
+    } finally {
+      client.close();
     }
   }
 
@@ -179,6 +191,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 _Section(l.aiSection),
+                ListTile(
+                  title: Text(l.aiProvider),
+                  subtitle: Text(l.aiProviderHelp),
+                  trailing: DropdownButton<String>(
+                    key: const Key('aiProvider'),
+                    value:
+                        const [
+                          'anthropic',
+                          'openai',
+                          'openrouter',
+                          'custom',
+                        ].contains(s.aiProvider)
+                        ? s.aiProvider
+                        : 'anthropic',
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'anthropic',
+                        child: Text('Anthropic'),
+                      ),
+                      DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
+                      DropdownMenuItem(
+                        value: 'openrouter',
+                        child: Text('OpenRouter'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'custom',
+                        child: Text('OpenAI-compatible'),
+                      ),
+                    ],
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      await _update(
+                        (s) => s.copyWith(
+                          aiProvider: v,
+                          aiModel: defaultModelFor(v),
+                        ),
+                      );
+                      await _load();
+                      if (mounted) setState(() => _aiTest = null);
+                    },
+                  ),
+                ),
+                if (s.aiProvider == 'custom' || s.aiProvider == 'openrouter')
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _baseUrl,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      decoration: InputDecoration(
+                        labelText: l.aiBaseUrl,
+                        hintText: 'https://openrouter.ai/api/v1',
+                        helperText: l.aiBaseUrlHelp,
+                      ),
+                      onSubmitted: (v) => _update(
+                        (s) => v.trim().isEmpty
+                            ? s.copyWith(clearAiBaseUrl: true)
+                            : s.copyWith(aiBaseUrl: v.trim()),
+                      ),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
@@ -187,7 +260,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     obscureText: true,
                     autocorrect: false,
                     decoration: InputDecoration(
-                      labelText: l.anthropicApiKey,
+                      labelText: l.apiKeyFor(_providerLabel(s.aiProvider)),
                       helperText: _hasApiKey ? l.apiKeySaved : l.apiKeyHelp,
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.save),
@@ -209,7 +282,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onPressed: () async {
                           await ref
                               .read(secureStoreProvider)
-                              .delete(SecureStore.anthropicKey);
+                              .delete(SecureStore.apiKeyFor(s.aiProvider));
                           setState(() => _hasApiKey = false);
                         },
                         child: Text(l.delete),
@@ -220,47 +293,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                   ],
                 ),
-                ListTile(
-                  title: Text(l.model),
-                  trailing: DropdownButton<String>(
-                    value: ClaudeModels.all.contains(s.aiModel)
-                        ? s.aiModel
-                        : ClaudeModels.opus5,
-                    items: [
-                      DropdownMenuItem(
-                        value: ClaudeModels.opus5,
-                        child: const Text('Claude Opus 5'),
+                if (modelChoicesFor(s.aiProvider).isNotEmpty)
+                  ListTile(
+                    title: Text(l.model),
+                    trailing: DropdownButton<String>(
+                      value: ClaudeModels.all.contains(s.aiModel)
+                          ? s.aiModel
+                          : ClaudeModels.opus5,
+                      items: const [
+                        DropdownMenuItem(
+                          value: ClaudeModels.opus5,
+                          child: Text('Claude Opus 5'),
+                        ),
+                        DropdownMenuItem(
+                          value: ClaudeModels.sonnet5,
+                          child: Text('Claude Sonnet 5'),
+                        ),
+                        DropdownMenuItem(
+                          value: ClaudeModels.fable51,
+                          child: Text('Claude Fable 5.1'),
+                        ),
+                      ],
+                      onChanged: (v) => _update((s) => s.copyWith(aiModel: v)),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      key: const Key('modelField'),
+                      controller: _model,
+                      autocorrect: false,
+                      decoration: InputDecoration(
+                        labelText: l.model,
+                        hintText: s.aiProvider == 'openrouter'
+                            ? l.modelHintOpenRouter
+                            : l.modelHintOpenAi,
+                        helperText: l.modelHelp,
                       ),
-                      DropdownMenuItem(
-                        value: ClaudeModels.sonnet5,
-                        child: const Text('Claude Sonnet 5'),
-                      ),
-                      DropdownMenuItem(
-                        value: ClaudeModels.fable51,
-                        child: const Text('Claude Fable 5.1'),
-                      ),
-                    ],
-                    onChanged: (v) => _update((s) => s.copyWith(aiModel: v)),
+                      onSubmitted: (v) =>
+                          _update((s) => s.copyWith(aiModel: v.trim())),
+                    ),
                   ),
-                ),
-                ListTile(
-                  title: Text(l.effort),
-                  subtitle: Text(l.effortHelp),
-                  trailing: DropdownButton<String>(
-                    value: s.aiEffort,
-                    items: [
-                      for (final e in effortLevels)
-                        DropdownMenuItem(value: e, child: Text(e)),
-                    ],
-                    onChanged: (v) => _update((s) => s.copyWith(aiEffort: v)),
+                if (s.aiProvider == 'anthropic') ...[
+                  ListTile(
+                    title: Text(l.effort),
+                    subtitle: Text(l.effortHelp),
+                    trailing: DropdownButton<String>(
+                      value: s.aiEffort,
+                      items: [
+                        for (final e in effortLevels)
+                          DropdownMenuItem(value: e, child: Text(e)),
+                      ],
+                      onChanged: (v) => _update((s) => s.copyWith(aiEffort: v)),
+                    ),
                   ),
-                ),
-                SwitchListTile(
-                  title: Text(l.showThinkingSummary),
-                  value: s.aiShowThinkingSummary,
-                  onChanged: (v) =>
-                      _update((s) => s.copyWith(aiShowThinkingSummary: v)),
-                ),
+                  SwitchListTile(
+                    title: Text(l.showThinkingSummary),
+                    value: s.aiShowThinkingSummary,
+                    onChanged: (v) =>
+                        _update((s) => s.copyWith(aiShowThinkingSummary: v)),
+                  ),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      l.aiProviderLimitations,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
                 SwitchListTile(
                   title: Text(l.autoRunCode),
                   subtitle: Text(l.autoRunCodeHelp),
@@ -450,6 +551,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 }
+
+String _providerLabel(String provider) => switch (provider) {
+  'openai' => 'OpenAI',
+  'openrouter' => 'OpenRouter',
+  'custom' => 'OpenAI-compatible',
+  _ => 'Anthropic',
+};
 
 class _Section extends StatelessWidget {
   const _Section(this.title);

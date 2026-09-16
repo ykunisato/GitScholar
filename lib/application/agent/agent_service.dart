@@ -26,7 +26,7 @@ class AgentService {
   final AppDatabase db;
   final BlobStore blobs;
   final EditingService editing;
-  final AnthropicClient Function(String apiKey) clientFor;
+  final LlmClient Function(String apiKey) clientFor;
   final DateTime Function() _clock;
   final String Function() _newId;
 

@@ -72,6 +72,11 @@ class GitHubClient {
 |---|---|---|
 | ユーザー | `GET /user` | |
 | リポジトリ一覧 | `GET /user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member` | `Link` ヘッダで次ページ。全ページ取得（上限 1000件） |
+| Issues一覧 | `GET /repos/{o}/{r}/issues?state=open&sort=updated&per_page=30` | プルリクエストも返るため `pull_request` を持つ要素を除外する |
+| Issue詳細・コメント | `GET /repos/{o}/{r}/issues/{n}`, `GET .../comments` | |
+| コメント投稿 | `POST /repos/{o}/{r}/issues/{n}/comments` | body は Markdown |
+| Discussion | `POST /graphql` | DiscussionにRESTは無くGraphQLのみ（ADR-0012）。`repository.hasDiscussionsEnabled` が false なら未設定として扱う。投稿は `addDiscussionComment`（`discussionId` はノードID） |
+| リアクション | `POST /graphql` | Issues・Discussion とも `addReaction` / `removeReaction`（`subjectId` はノードID、`content` は `ReactionContent`）。表示は `reactionGroups { content viewerHasReacted reactors(first:1){ totalCount } }`。RESTは削除に reaction id が要るためGraphQLに統一（ADR-0012） |
 | リポジトリ詳細 | `GET /repos/{owner}/{repo}` | `default_branch` |
 | ブランチ一覧 | `GET /repos/{owner}/{repo}/branches?per_page=100` | Phase 2 |
 | ブランチ先頭 | `GET /repos/{owner}/{repo}/git/ref/heads/{branch}` | `object.sha` = コミットSHA |

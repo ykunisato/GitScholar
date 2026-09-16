@@ -122,6 +122,8 @@ enum ChangeStatus { pending, proposed /* AI提案・未承認 */, rejected }
 
 ```dart
 @freezed class Settings {
+  String aiProvider;             // "anthropic" | "openai" | "openrouter" | "custom"（ADR-0010）
+  String? aiBaseUrl;             // OpenAI互換の接続先。未設定なら提供元の既定
   String aiModel;                // 既定 "claude-opus-5"
   String aiEffort;               // "low"|"medium"|"high"|"xhigh"|"max"、既定 "high"
   bool aiShowThinkingSummary;    // 既定 true
@@ -130,6 +132,38 @@ enum ChangeStatus { pending, proposed /* AI提案・未承認 */, rejected }
   int cacheLimitMb;              // 既定 2048
 }
 ```
+
+### 1.7 スレッド（Discussion / Issues）
+
+```dart
+enum ThreadKind { discussion, issue }
+
+class RepoThread {
+  ThreadKind kind; int number; String title; String author;
+  DateTime updatedAt; int commentCount; String url;
+  String? category;              // Discussion のカテゴリ
+  bool isOpen;                   // Issues のみ
+}
+
+class ThreadComment { String id; String nodeId; String author; String body; DateTime createdAt; List<Reaction> reactions; }
+class ThreadDetail { RepoThread thread; String body; List<ThreadComment> comments; String? nodeId; List<Reaction> reactions; }
+
+enum ReactionKind { thumbsUp, thumbsDown, laugh, hooray, confused, heart, rocket, eyes }
+class Reaction { ReactionKind kind; int count; bool mine; }
+```
+
+スレッドはDBに保存せず、開くたびにGitHubから取得する。`nodeId` はGraphQLのノードIDで、Discussionへのコメントと、Issues / Discussion 双方のリアクションに使う（ADR-0012）。`ReactionKind` はGraphQLの `ReactionContent`（`THUMBS_UP` 等）とRESTの `content`（`+1` 等）の両方の名前を持つ。
+
+### 1.8 PDF注釈とメモ
+
+```dart
+enum HighlightColor { yellow, green, blue, pink }
+class HighlightRect { double left, top, right, bottom; }  // PDFページ座標。原点は左下、yは上向きなので top > bottom
+class PdfHighlight { String id; int page; List<HighlightRect> rects; HighlightColor color; String text; DateTime createdAt; }
+class PdfAnnotations { List<PdfHighlight> highlights; }
+```
+
+ハイライトは `<pdf名>.annotations.json`（ADR-0008）、メモは `<pdf名>.md`（ADR-0011）に保存する。どちらも通常のリポジトリファイルなので、保存は `PendingChange` になり、コミットは他の編集と同じ操作で行う。DBには持たない。
 
 ## 2. ローカルDB（drift）
 
@@ -198,10 +232,21 @@ CREATE TABLE commit_requests (
   paths_json TEXT NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL
 );
 
--- Phase 4 で追加: annotations, paper_metadata, search_index
+-- Phase 4 で追加予定: paper_metadata, search_index
+-- PDF注釈はDBではなくリポジトリ内のサイドカーファイルに置く（ADR-0008）
 ```
 
 設定（`Settings`）は `shared_preferences` ではなく drift の `key_value` テーブル（`key TEXT PRIMARY KEY, value_json TEXT`）に保存する。パッケージを増やさないため。
+
+`key_value` には設定のほか、次を保存する。
+
+| キー | 内容 |
+|---|---|
+| `last_workspace` | 最後に開いたリポジトリとブランチ（起動時に復元） |
+| `pane_widths` | タブレットのペイン幅 |
+| `thread_kind` | スレッドの表示種別 `discussion` / `issue`（FR-97） |
+| `pdfpage:<blobSha>` | PDFごとの最後に開いたページ |
+| `etag:<url>` | 条件付きリクエスト用のETagと応答本文（04 §2.2） |
 
 ## 3. BlobStore（ファイルキャッシュ）
 

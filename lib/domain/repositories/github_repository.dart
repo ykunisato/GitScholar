@@ -83,6 +83,36 @@ abstract class GitHubRepository {
     String? sha,
   });
 
+  /// Lists discussions (FR-97). Returns null when the repository has
+  /// discussions turned off.
+  Future<List<RepoThread>?> listDiscussions(RepositoryRef repo);
+
+  /// Lists open issues, newest activity first (FR-97).
+  Future<List<RepoThread>> listIssues(RepositoryRef repo);
+
+  /// Reads one thread with its comments.
+  Future<ThreadDetail> thread(RepositoryRef repo, RepoThread thread);
+
+  /// Posts a comment and returns it (FR-98).
+  ///
+  /// [nodeId] is the discussion's GraphQL id; it is ignored for issues.
+  Future<ThreadComment> comment(
+    RepositoryRef repo,
+    RepoThread thread,
+    String body, {
+    String? nodeId,
+  });
+
+  /// Adds or removes the signed-in user's [kind] reaction on [subjectId] and
+  /// returns the subject's reactions afterwards (FR-99). [subjectId] is the
+  /// GraphQL node id of an issue, a discussion or one of their comments.
+  Future<List<Reaction>> react(
+    RepositoryRef repo, {
+    required String subjectId,
+    required ReactionKind kind,
+    required bool add,
+  });
+
   /// Remaining core rate limit, if known.
   int? get rateLimitRemaining;
 }

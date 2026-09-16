@@ -4,6 +4,9 @@
 
 ## 1. 方針
 
+> 提供元は Anthropic のほか、OpenAI 互換（OpenAI、OpenRouter、自前サーバ）を選べる（ADR-0010）。本章の詳細は Anthropic 経路のもので、OpenAI 互換では思考の要約・プロンプトキャッシュ・effort・フォールバック・コンテキスト編集を送らない。会話の保存形式は共通で、`packages/scholar_agent` の `LlmClient` が差異を吸収する。
+
+
 - Dart には Anthropic 公式SDKが無いため、**Messages API を Raw HTTP** で叩く。エンドポイントは `POST https://api.anthropic.com/v1/messages`、ヘッダは `x-api-key`, `anthropic-version: 2023-06-01`, `content-type: application/json`、必要時 `anthropic-beta`。
 - APIキーはユーザー自身のもの（BYOK, ADR-0004）。`SecureStore` の `anthropic_api_key` に保存する。
 - エージェントループ（tool_use → 実行 → tool_result → 再送）は **アプリ内**で回す（ADR-0005）。ツールはローカルのワークスペースに対して動くため、サーバーを介す必要がない。
@@ -162,6 +165,7 @@ RunAgentTurn(conversationId, userText, attachedContext)
 - `conversations` / `messages` に保存。`blocks_json` は API の content ブロックをそのまま保存（thinking ブロック含む。再送に必要）。
 - 会話タイトルは最初のユーザー発話の先頭 40 文字。「タイトルを生成」はしない（コスト節約）。
 - 会話一覧はリポジトリ単位。削除可能。
+- ← でリポジトリを閉じても会話は保持する。**別の**リポジトリを開いたときだけ会話を切り替え、そのリポジトリに保存済みの会話があれば最新のものを復元する（FR-66）。新しい会話は AIペインの [＋] で始める。
 
 ## 7. `packages/scholar_agent` 公開API
 

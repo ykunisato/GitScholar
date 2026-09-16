@@ -6,6 +6,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 abstract class SecureStore {
   static const githubToken = 'github_access_token';
   static const anthropicKey = 'anthropic_api_key';
+
+  /// Key of the API key for [provider] (ADR-0010).
+  static String apiKeyFor(String provider) => switch (provider) {
+    'openai' => 'openai_api_key',
+    'openrouter' => 'openrouter_api_key',
+    'custom' => 'custom_llm_api_key',
+    _ => anthropicKey,
+  };
   static const jupyterToken = 'jupyter_token';
 
   /// Device code of a sign-in in progress, so it survives the app being

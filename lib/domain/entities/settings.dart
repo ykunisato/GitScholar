@@ -1,6 +1,8 @@
 /// User settings (docs/03_data_model.md §1.6).
 class Settings {
   const Settings({
+    this.aiProvider = 'anthropic',
+    this.aiBaseUrl,
     this.aiModel = 'claude-opus-5',
     this.aiEffort = 'high',
     this.aiShowThinkingSummary = true,
@@ -18,6 +20,8 @@ class Settings {
   factory Settings.fromJson(Map<String, dynamic> j) {
     const d = Settings();
     return Settings(
+      aiProvider: j['aiProvider'] as String? ?? d.aiProvider,
+      aiBaseUrl: j['aiBaseUrl'] as String?,
       aiModel: j['aiModel'] as String? ?? d.aiModel,
       aiEffort: j['aiEffort'] as String? ?? d.aiEffort,
       aiShowThinkingSummary:
@@ -34,6 +38,12 @@ class Settings {
       wordWrap: j['wordWrap'] as bool? ?? d.wordWrap,
     );
   }
+
+  /// `anthropic`, `openai`, `openrouter` or `custom` (ADR-0010).
+  final String aiProvider;
+
+  /// Endpoint root for `custom`, or an override for the others.
+  final String? aiBaseUrl;
 
   final String aiModel;
   final String aiEffort;
@@ -55,6 +65,8 @@ class Settings {
   final bool wordWrap;
 
   Map<String, dynamic> toJson() => {
+    'aiProvider': aiProvider,
+    'aiBaseUrl': aiBaseUrl,
     'aiModel': aiModel,
     'aiEffort': aiEffort,
     'aiShowThinkingSummary': aiShowThinkingSummary,
@@ -70,6 +82,9 @@ class Settings {
   };
 
   Settings copyWith({
+    String? aiProvider,
+    String? aiBaseUrl,
+    bool clearAiBaseUrl = false,
     String? aiModel,
     String? aiEffort,
     bool? aiShowThinkingSummary,
@@ -85,6 +100,8 @@ class Settings {
     double? editorFontSize,
     bool? wordWrap,
   }) => Settings(
+    aiProvider: aiProvider ?? this.aiProvider,
+    aiBaseUrl: clearAiBaseUrl ? null : (aiBaseUrl ?? this.aiBaseUrl),
     aiModel: aiModel ?? this.aiModel,
     aiEffort: aiEffort ?? this.aiEffort,
     aiShowThinkingSummary: aiShowThinkingSummary ?? this.aiShowThinkingSummary,

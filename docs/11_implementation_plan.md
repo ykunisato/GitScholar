@@ -4,7 +4,7 @@
 
 工数の目安: S = 半日以内、M = 1〜2日、L = 3日以上（AIエージェントが実装する場合の目安。人間のレビュー時間は含まない）。
 
-## 実装状況（2026-09-15 時点）
+## 実装状況（2026-09-17 時点）
 
 | 範囲 | 状態 | 主な実装場所 | 備考 |
 |---|---|---|---|
@@ -19,7 +19,11 @@
 | T-050〜T-055 実行環境 | 実装済み | `lib/infrastructure/execution`, `lib/application/execution` | 実 Jupyter Server との結合テストは未実施 |
 | FR-16 ピン留め | 実装済み | `lib/presentation/repositories`, `app_database`（schema v2） | 最大10件 |
 | FR-27〜FR-30b オフライン保存 | 実装済み | `lib/application/offline`, `lib/presentation/offline` | 一括ダウンロード、差分更新、削除 |
-| Phase 4〜5 | 未着手 | | |
+| FR-62〜FR-64 AI提供元の追加 | 実装済み | `packages/scholar_agent/lib/src/{llm_client,openai_client}.dart` | OpenAI互換を1層で吸収（ADR-0010） |
+| FR-90, FR-96 PDFのマーカーとメモ | 実装済み | `lib/domain/entities/annotation.dart`, `lib/application/editing/pdf_sidecar_service.dart`, `lib/presentation/viewers/pdf` | サイドカーJSONと同名Markdown（ADR-0008, ADR-0011）。選択メニューは自前実装。実機でのみ検証可能 |
+| T-074 FR-97〜FR-99 Discussion / Issues | 実装済み | `packages/github_api`（`threads.dart`, GraphQL）, `lib/application/threads`, `lib/presentation/threads` | 閲覧・コメント・リアクション（ADR-0012） |
+| Phase 4 の残り（T-061〜T-064） | 未着手 | | 端末内全文検索、`metadata.yaml`、BibTeX、PDF索引 |
+| Phase 5 の残り（T-070〜T-073） | 未着手 | | PR一覧・作成・レビューコメント |
 
 ---
 
@@ -263,6 +267,7 @@ Jupyter Server REST / WebSocket API を使う。依存に `web_socket_channel` �
 - T-071 PRレビューコメント
 - T-072 アプリ内競合解決の拡張
 - T-073 ADR: 端末内Git実装への移行判断
+- T-074 Discussion / Issues の閲覧とコメント投稿（FR-97, FR-98, ADR-0012）**実装済み**
 
 ---
 

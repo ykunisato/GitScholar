@@ -263,4 +263,127 @@ class FakeGitHub implements GitHubRepository {
     refs[_key(r, branch)] = commit;
     return PutFileResult(blobSha: blobSha, commitSha: commit, treeSha: tree);
   }
+
+  // ------------------------------------------------- issues / discussions
+
+  /// Whether the repository has discussions turned on.
+  var discussionsEnabled = true;
+
+  final threads = <RepoThread>[];
+  final threadBodies = <String, String>{};
+  final threadComments = <String, List<ThreadComment>>{};
+  var _commentId = 0;
+
+  static String threadKey(RepoThread t) => '${t.kind.name}#${t.number}';
+
+  /// Seeds a thread and returns it.
+  RepoThread seedThread({
+    required ThreadKind kind,
+    required int number,
+    required String title,
+    String author = 'bob',
+    String body = '',
+    String? category,
+    DateTime? updatedAt,
+  }) {
+    final t = RepoThread(
+      kind: kind,
+      number: number,
+      title: title,
+      author: author,
+      updatedAt: updatedAt ?? DateTime(2026, 9, number),
+      commentCount: 0,
+      url: 'https://github.com/${repo.fullName}/discussions/$number',
+      category: category,
+    );
+    threads.add(t);
+    threadBodies[threadKey(t)] = body;
+    return t;
+  }
+
+  List<RepoThread> _of(ThreadKind kind) => [
+    for (final t in threads)
+      if (t.kind == kind) t,
+  ];
+
+  @override
+  Future<List<RepoThread>?> listDiscussions(RepositoryRef r) async {
+    calls.add('discussions');
+    _maybeFail();
+    return discussionsEnabled ? _of(ThreadKind.discussion) : null;
+  }
+
+  @override
+  Future<List<RepoThread>> listIssues(RepositoryRef r) async {
+    calls.add('issues');
+    _maybeFail();
+    return _of(ThreadKind.issue);
+  }
+
+  @override
+  Future<ThreadDetail> thread(RepositoryRef r, RepoThread thread) async {
+    calls.add('thread');
+    _maybeFail();
+    final key = threadKey(thread);
+    return ThreadDetail(
+      thread: thread,
+      body: threadBodies[key] ?? '',
+      nodeId: 'node:$key',
+      reactions: _reactionsOf('node:$key'),
+      comments: [
+        for (final c in threadComments[key] ?? const <ThreadComment>[])
+          c.withReactions(_reactionsOf(c.nodeId)),
+      ],
+    );
+  }
+
+  /// Reactions by subject node id.
+  final reactions = <String, Set<ReactionKind>>{};
+
+  @override
+  Future<List<Reaction>> react(
+    RepositoryRef r, {
+    required String subjectId,
+    required ReactionKind kind,
+    required bool add,
+  }) async {
+    calls.add('react');
+    _maybeFail();
+    final set = reactions[subjectId] ??= <ReactionKind>{};
+    if (add) {
+      set.add(kind);
+    } else {
+      set.remove(kind);
+    }
+    return _reactionsOf(subjectId);
+  }
+
+  List<Reaction> _reactionsOf(String subjectId) => [
+    for (final k in reactions[subjectId] ?? const <ReactionKind>{})
+      Reaction(kind: k, count: 1, mine: true),
+  ];
+
+  @override
+  Future<ThreadComment> comment(
+    RepositoryRef r,
+    RepoThread thread,
+    String body, {
+    String? nodeId,
+  }) async {
+    calls.add('comment');
+    _maybeFail();
+    if (thread.kind == ThreadKind.discussion && nodeId == null) {
+      throw const ValidationFailure('Missing discussion id');
+    }
+    final id = 'c${++_commentId}';
+    final c = ThreadComment(
+      id: id,
+      nodeId: 'node:$id',
+      author: user.login,
+      body: body,
+      createdAt: DateTime(2026, 9, 16),
+    );
+    (threadComments[threadKey(thread)] ??= []).add(c);
+    return c;
+  }
 }

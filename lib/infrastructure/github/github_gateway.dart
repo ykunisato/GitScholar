@@ -241,4 +241,139 @@ class GitHubGateway implements GitHubRepository {
       treeSha: r.treeSha,
     );
   }, isRefUpdate: true);
+
+  // ------------------------------------------------- issues / discussions
+
+  RepoThread _discussion(DiscussionDto d) => RepoThread(
+    kind: ThreadKind.discussion,
+    number: d.number,
+    title: d.title,
+    author: d.author,
+    updatedAt: d.updatedAt,
+    commentCount: d.commentCount,
+    url: d.url,
+    category: d.category,
+  );
+
+  RepoThread _issue(IssueDto i) => RepoThread(
+    kind: ThreadKind.issue,
+    number: i.number,
+    title: i.title,
+    author: i.author,
+    updatedAt: i.updatedAt,
+    commentCount: i.commentCount,
+    url: i.htmlUrl,
+    isOpen: i.isOpen,
+  );
+
+  ThreadComment _threadComment(ThreadCommentDto c) => ThreadComment(
+    id: c.id,
+    nodeId: c.nodeId,
+    reactions: _reactions(c.reactions),
+    author: c.author,
+    body: c.body,
+    createdAt: c.createdAt,
+  );
+
+  /// Drops empty groups and anything GitHub adds that the app does not know.
+  List<Reaction> _reactions(List<ReactionGroupDto> groups) {
+    final out = <Reaction>[];
+    for (final g in groups) {
+      final kind = ReactionKind.fromGraphQl(g.content);
+      if (kind == null || g.count == 0) continue;
+      out.add(Reaction(kind: kind, count: g.count, mine: g.viewerHasReacted));
+    }
+    return out;
+  }
+
+  @override
+  Future<List<RepoThread>?> listDiscussions(RepositoryRef repo) =>
+      _get(() async {
+        final list = await client.listDiscussions(repo.owner, repo.name);
+        return list == null ? null : [for (final d in list) _discussion(d)];
+      });
+
+  @override
+  Future<List<RepoThread>> listIssues(RepositoryRef repo) => _get(() async {
+    final list = await client.listIssues(repo.owner, repo.name);
+    return [for (final i in list) _issue(i)];
+  });
+
+  @override
+  Future<ThreadDetail> thread(RepositoryRef repo, RepoThread thread) => _get(
+    () async {
+      if (thread.kind == ThreadKind.discussion) {
+        final d = await client.getDiscussion(
+          repo.owner,
+          repo.name,
+          thread.number,
+        );
+        return ThreadDetail(
+          thread: _discussion(d),
+          body: d.body,
+          nodeId: d.nodeId,
+          reactions: _reactions(d.reactions),
+          comments: [for (final c in d.comments) _threadComment(c)],
+        );
+      }
+      final issue = await client.getIssue(repo.owner, repo.name, thread.number);
+      final comments = await client.listIssueComments(
+        repo.owner,
+        repo.name,
+        thread.number,
+      );
+      // The issues API does not say whether the signed-in user reacted, so the
+      // reactions are read separately by node id.
+      final groups = await client.reactionsFor([
+        issue.nodeId,
+        for (final c in comments) c.nodeId,
+      ]);
+      return ThreadDetail(
+        thread: _issue(issue),
+        body: issue.body,
+        nodeId: issue.nodeId,
+        reactions: _reactions(groups[issue.nodeId] ?? const []),
+        comments: [
+          for (final c in comments)
+            _threadComment(
+              c,
+            ).withReactions(_reactions(groups[c.nodeId] ?? const [])),
+        ],
+      );
+    },
+  );
+
+  @override
+  Future<ThreadComment> comment(
+    RepositoryRef repo,
+    RepoThread thread,
+    String body, {
+    String? nodeId,
+  }) => _write(() async {
+    if (thread.kind == ThreadKind.discussion) {
+      if (nodeId == null) {
+        throw const GitHubApiException(422, 'Missing discussion id');
+      }
+      return _threadComment(await client.createDiscussionComment(nodeId, body));
+    }
+    return _threadComment(
+      await client.createIssueComment(
+        repo.owner,
+        repo.name,
+        thread.number,
+        body,
+      ),
+    );
+  });
+
+  @override
+  Future<List<Reaction>> react(
+    RepositoryRef repo, {
+    required String subjectId,
+    required ReactionKind kind,
+    required bool add,
+  }) => _write(
+    () async =>
+        _reactions(await client.react(subjectId, kind.graphQlName, add: add)),
+  );
 }

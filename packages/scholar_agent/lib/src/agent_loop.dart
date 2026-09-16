@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'accumulator.dart';
-import 'client.dart';
 import 'errors.dart';
+import 'llm_client.dart';
 import 'models.dart';
 import 'request.dart';
 
@@ -114,7 +113,7 @@ class AgentFailed extends AgentEvent {
   const AgentFailed(this.error);
 
   /// The error.
-  final AnthropicApiException error;
+  final LlmApiException error;
 }
 
 /// In-app tool-use loop (docs/07_ai_agent.md §5, ADR-0005).
@@ -129,8 +128,8 @@ class AgentLoop {
     this.maxPauseRetries = 3,
   });
 
-  /// API client.
-  final AnthropicClient client;
+  /// Model provider.
+  final LlmClient client;
 
   /// Tool handlers by name.
   final Map<String, ToolHandler> handlers;
@@ -157,56 +156,55 @@ class AgentLoop {
     var pauses = 0;
     for (var iteration = 0; ; iteration++) {
       yield RequestStarted(iteration);
-      final acc = MessageAccumulator();
+      LlmTurnComplete? completed;
       try {
-        await for (final event in client.streamMessage(
+        await for (final event in client.streamTurn(
           buildRequest(List.unmodifiable(history)),
         )) {
-          for (final delta in acc.apply(event)) {
-            switch (delta) {
-              case TextDeltaOut(:final text):
-                yield AgentTextDelta(text);
-              case ThinkingDeltaOut(:final text):
-                yield AgentThinkingDelta(text);
-              case BlockStartedOut() || BlockFinishedOut():
-                break;
-            }
+          switch (event) {
+            case LlmTextDelta(:final text):
+              yield AgentTextDelta(text);
+            case LlmThinkingDelta(:final text):
+              yield AgentThinkingDelta(text);
+            case LlmTurnComplete():
+              completed = event;
           }
         }
-      } on AnthropicApiException catch (e) {
+      } on LlmApiException catch (e) {
         yield AgentFailed(e);
         return;
       } on FormatException catch (e) {
-        yield AgentFailed(AnthropicApiException(0, e.message, midStream: true));
+        yield AgentFailed(LlmApiException(0, e.message, midStream: true));
         return;
       }
 
-      if (!acc.done && acc.stopReason == null) {
+      final turn = completed;
+      if (turn == null) {
         yield const AgentFailed(
-          AnthropicApiException(0, 'stream ended early', midStream: true),
+          LlmApiException(0, 'stream ended early', midStream: true),
         );
         return;
       }
 
-      if (acc.stopReason == 'refusal') {
+      if (turn.stopReason == 'refusal') {
         // Discard partial output; never echo a refused response.
         final partial = [
-          for (final b in acc.content)
+          for (final b in turn.message.content)
             if (b['type'] == 'text') b['text'] as String,
         ].join();
         yield TurnFinished(
           'refusal',
-          stopDetails: acc.stopDetails,
+          stopDetails: turn.stopDetails,
           partialText: partial,
         );
         return;
       }
 
-      final assistant = Message('assistant', acc.contentForHistory());
+      final assistant = turn.message;
       history.add(assistant);
-      yield MessageAppended(assistant, usage: acc.usage, model: acc.model);
+      yield MessageAppended(assistant, usage: turn.usage, model: turn.model);
 
-      switch (acc.stopReason) {
+      switch (turn.stopReason) {
         case 'tool_use':
           final calls = assistant.toolUses;
           if (toolCalls + calls.length > maxToolCalls) {
@@ -241,7 +239,7 @@ class AgentLoop {
             return;
           }
         default:
-          yield TurnFinished(acc.stopReason, stopDetails: acc.stopDetails);
+          yield TurnFinished(turn.stopReason, stopDetails: turn.stopDetails);
           return;
       }
     }

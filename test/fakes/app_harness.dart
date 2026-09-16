@@ -40,7 +40,7 @@ Widget harness(
       githubTokenProvider.overrideWith(() => GitHubTokenController('tok')),
       authControllerProvider.overrideWith(auth),
       if (anthropic != null)
-        anthropicClientFactoryProvider.overrideWithValue(
+        llmClientFactoryProvider.overrideWithValue(
           (key) => AnthropicClient.withApiKey(key, client: anthropic.client),
         ),
       ...extraOverrides,

@@ -13,6 +13,8 @@ import '../../application/auth/auth_service.dart';
 import '../../application/editing/change_diff.dart';
 import '../../application/editing/commit_service.dart';
 import '../../application/editing/editing_service.dart';
+import '../../application/editing/pdf_sidecar_service.dart';
+import '../../application/threads/thread_service.dart';
 import '../../application/execution/execution_service.dart';
 import '../../application/workspace/workspace_service.dart';
 import '../../config.dart';
@@ -75,12 +77,65 @@ final deviceFlowFactoryProvider = Provider<GitHubDeviceFlow Function()>((ref) {
       GitHubDeviceFlow(clientId: AppConfig.githubClientId, client: client);
 });
 
-/// Anthropic client factory (overridable for tests).
-final anthropicClientFactoryProvider =
-    Provider<AnthropicClient Function(String apiKey)>((ref) {
-      final client = ref.watch(httpClientProvider);
-      return (key) => AnthropicClient.withApiKey(key, client: client);
-    });
+/// Model client factory for the configured provider (ADR-0010).
+/// Overridable for tests.
+final llmClientFactoryProvider = Provider<LlmClient Function(String apiKey)>((
+  ref,
+) {
+  final client = ref.watch(httpClientProvider);
+  final settings = ref.watch(currentSettingsProvider);
+  return (key) => buildLlmClient(
+    provider: settings.aiProvider,
+    apiKey: key,
+    baseUrl: settings.aiBaseUrl,
+    client: client,
+  );
+});
+
+/// Creates the client for [provider]. OpenAI, OpenRouter and self-hosted
+/// servers all speak the same chat completions API.
+LlmClient buildLlmClient({
+  required String provider,
+  required String apiKey,
+  String? baseUrl,
+  http.Client? client,
+}) {
+  final url = (baseUrl ?? '').trim();
+  switch (provider) {
+    case 'openai':
+      return OpenAiClient(
+        apiKey: apiKey,
+        baseUrl: url.isEmpty ? OpenAiClient.openAiBaseUrl : url,
+        client: client,
+      );
+    case 'openrouter':
+      return OpenAiClient(
+        apiKey: apiKey,
+        baseUrl: url.isEmpty ? OpenAiClient.openRouterBaseUrl : url,
+        client: client,
+        extraHeaders: const {
+          'HTTP-Referer': 'https://github.com/ykunisato/GitScholar',
+          'X-Title': 'GitScholar',
+        },
+      );
+    case 'custom':
+      return OpenAiClient(
+        apiKey: apiKey,
+        baseUrl: url.isEmpty ? OpenAiClient.openAiBaseUrl : url,
+        client: client,
+      );
+    default:
+      return AnthropicClient.withApiKey(apiKey, client: client);
+  }
+}
+
+/// Model ids offered for [provider]; empty means free text.
+List<String> modelChoicesFor(String provider) =>
+    provider == 'anthropic' ? ClaudeModels.all : const [];
+
+/// Default model when switching to [provider].
+String defaultModelFor(String provider) =>
+    provider == 'anthropic' ? ClaudeModels.opus5 : '';
 
 // ------------------------------------------------------------------ settings
 
@@ -340,12 +395,23 @@ final changeDiffLoaderProvider = Provider<ChangeDiffLoader>(
   ),
 );
 
+final threadServiceProvider = Provider<ThreadService>(
+  (ref) => ThreadService(ref.watch(githubRepositoryProvider)),
+);
+
+final pdfSidecarServiceProvider = Provider<PdfSidecarService>(
+  (ref) => PdfSidecarService(
+    editing: ref.watch(editingServiceProvider),
+    workspaces: ref.watch(workspaceServiceProvider),
+  ),
+);
+
 final agentServiceProvider = Provider<AgentService>(
   (ref) => AgentService(
     db: ref.watch(databaseProvider),
     blobs: ref.watch(blobStoreProvider),
     editing: ref.watch(editingServiceProvider),
-    clientFor: ref.watch(anthropicClientFactoryProvider),
+    clientFor: ref.watch(llmClientFactoryProvider),
   ),
 );
 
@@ -657,9 +723,67 @@ final pdfPageProvider = NotifierProvider<PdfPageController, Map<String, int>>(
 /// Extracted PDF page texts by blob SHA (AI context).
 final pdfTextCacheProvider = Provider<Map<String, List<String>>>((ref) => {});
 
+/// Highlights stored beside the PDF at the given path (FR-90). Reloads when
+/// the sidecar file changes.
+final pdfAnnotationsProvider = FutureProvider.autoDispose
+    .family<PdfAnnotations, String>((ref, path) async {
+      final ws = ref.watch(currentWorkspaceProvider).value;
+      if (ws == null) return PdfAnnotations.empty;
+      final sidecar = PdfSidecarService.annotationsPathFor(path);
+      final pending = ref.watch(pendingChangesProvider).value ?? const [];
+      final change = pending
+          .where((c) => c.isPending && c.path == sidecar)
+          .map((c) => '${c.kind}:${c.contentSha}')
+          .join();
+      ref.watch(Provider((_) => change));
+      return ref.read(pdfSidecarServiceProvider).load(ws, path);
+    });
+
+/// Whether the threads pane shows discussions or issues (FR-97). The choice
+/// is remembered, and the first open shows discussions.
+class ThreadKindController extends Notifier<ThreadKind> {
+  static const storageKey = 'thread_kind';
+
+  @override
+  ThreadKind build() {
+    _restore();
+    return ThreadKind.discussion;
+  }
+
+  Future<void> _restore() async {
+    final v = await ref.read(databaseProvider).getValue(storageKey);
+    if (ref.mounted && v == ThreadKind.issue.name) state = ThreadKind.issue;
+  }
+
+  void set(ThreadKind kind) {
+    state = kind;
+    ref.read(databaseProvider).setValue(storageKey, kind.name);
+  }
+}
+
+final threadKindProvider = NotifierProvider<ThreadKindController, ThreadKind>(
+  ThreadKindController.new,
+);
+
+/// Threads of the selected kind for the open repository. A null value means
+/// discussions are turned off for the repository.
+final threadListProvider = FutureProvider.autoDispose<List<RepoThread>?>((
+  ref,
+) async {
+  final repo = ref.watch(currentWorkspaceProvider.select((s) => s.value?.repo));
+  if (repo == null) return const [];
+  final kind = ref.watch(threadKindProvider);
+  try {
+    return await ref.read(threadServiceProvider).list(repo, kind);
+  } on AuthFailure {
+    await ref.read(authControllerProvider.notifier).onAuthFailure();
+    rethrow;
+  }
+});
+
 // ---------------------------------------------------------------------- UI
 
-enum PhonePane { files, viewer, agent }
+enum PhonePane { files, viewer, threads, agent }
 
 class ShellState {
   const ShellState({
@@ -691,17 +815,36 @@ class ShellState {
 
 class ShellController extends Notifier<ShellState> {
   @override
-  ShellState build() => const ShellState();
+  ShellState build() {
+    // The viewer pane is useless without a file, so fall back to the file
+    // tree when the last tab closes (docs/08 §2).
+    ref.listen(openFilesProvider.select((s) => s.active), (prev, next) {
+      if (next == null && state.phonePane == PhonePane.viewer) {
+        state = state.copyWith(phonePane: PhonePane.files);
+      }
+    });
+    return const ShellState();
+  }
 
   void toggleFiles() => state = state.copyWith(showFiles: !state.showFiles);
   void toggleAgent() => state = state.copyWith(
     showAgent: !state.showAgent,
     phonePane: PhonePane.agent,
   );
-  void showPane(PhonePane p) => state = state.copyWith(
-    phonePane: p,
-    showAgent: p == PhonePane.agent ? true : null,
-  );
+
+  /// Shows [p]. Selecting the viewer with no open file shows the file tree
+  /// instead, so the user never lands on an empty viewer.
+  void showPane(PhonePane p) {
+    final target =
+        p == PhonePane.viewer && ref.read(openFilesProvider).active == null
+        ? PhonePane.files
+        : p;
+    state = state.copyWith(
+      phonePane: target,
+      showAgent: target == PhonePane.agent ? true : null,
+    );
+  }
+
   void setEditing(String path, bool editing) => state = state.copyWith(
     editing: editing
         ? {...state.editing, path}

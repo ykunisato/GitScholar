@@ -29,6 +29,8 @@
 - 削除: `ChangeKind.delete`。ツリーでは取り消し線表示。
 - リネーム: `ChangeKind.rename`（`oldPath` → `path`）。内容変更を伴う場合も1つのPendingChangeで表す。
 
+PDFのマーカー（`<pdf名>.annotations.json`）とメモ（`<pdf名>.md`）も専用の保存先を持たず、通常のファイル編集として扱う。保存すると `PendingChange` になり、変更一覧に並び、コミットは他の編集と同じ操作で行う（ADR-0008, ADR-0011）。
+
 ## 2. diff（`packages/text_diff`）
 
 行単位の Myers 差分（O(ND)）を実装する。

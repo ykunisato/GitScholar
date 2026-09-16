@@ -4,7 +4,10 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'accumulator.dart';
 import 'errors.dart';
+import 'llm_client.dart';
+import 'models.dart';
 import 'request.dart';
 import 'sse.dart';
 
@@ -27,8 +30,8 @@ class ApiKeyHeaderProvider implements HeaderProvider {
   Future<Map<String, String>> headers() async => {'x-api-key': apiKey};
 }
 
-/// Streaming Messages API client.
-class AnthropicClient {
+/// Streaming Messages API client (Anthropic).
+class AnthropicClient implements LlmClient {
   /// Creates a client.
   AnthropicClient({
     required this.auth,
@@ -57,6 +60,31 @@ class AnthropicClient {
 
   /// API version header value.
   static const apiVersion = '2023-06-01';
+
+  @override
+  Stream<LlmEvent> streamTurn(MessageRequest request) async* {
+    final acc = MessageAccumulator();
+    await for (final event in streamMessage(request)) {
+      for (final delta in acc.apply(event)) {
+        switch (delta) {
+          case TextDeltaOut(:final text):
+            yield LlmTextDelta(text);
+          case ThinkingDeltaOut(:final text):
+            yield LlmThinkingDelta(text);
+          case BlockStartedOut() || BlockFinishedOut():
+            break;
+        }
+      }
+    }
+    if (!acc.done && acc.stopReason == null) return;
+    yield LlmTurnComplete(
+      message: Message('assistant', acc.contentForHistory()),
+      stopReason: acc.stopReason,
+      stopDetails: acc.stopDetails,
+      usage: acc.usage,
+      model: acc.model,
+    );
+  }
 
   /// Sends [request] and streams decoded events.
   ///
@@ -126,5 +154,6 @@ class AnthropicClient {
   }
 
   /// Closes the HTTP client.
+  @override
   void close() => _http.close();
 }

@@ -14,6 +14,7 @@ import '../core/widgets.dart';
 import '../../application/repositories/pin_service.dart';
 import '../editing/commit_sheet.dart';
 import '../offline/offline_sheet.dart';
+import '../threads/threads_pane.dart';
 import 'files_pane.dart';
 import 'viewer_pane.dart';
 
@@ -167,18 +168,38 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
 
     final appBar = AppBar(
       titleSpacing: 8,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        tooltip: l.repositories,
-        onPressed: () {
-          ref.read(currentWorkspaceProvider.notifier).close();
-          context.go('/repos');
-        },
+      leadingWidth: 104,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Tooltip(
+          message: l.repoListHint,
+          child: TextButton.icon(
+            key: const Key('repoListButton'),
+            icon: const Icon(Icons.folder_copy_outlined, size: 18),
+            label: Text(l.repoListShort, overflow: TextOverflow.ellipsis),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: _toRepositoryList,
+          ),
+        ),
       ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(ws.repo.name, overflow: TextOverflow.ellipsis),
+          InkWell(
+            onTap: _toRepositoryList,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(ws.repo.name, overflow: TextOverflow.ellipsis),
+                ),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
           _BranchPicker(workspace: ws),
         ],
       ),
@@ -213,6 +234,20 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
           onPressed: () => context.push('/ws/${ws.repo.fullName}/changes'),
         ),
         if (!phone) ...[
+          IconButton(
+            key: const Key('toggleThreads'),
+            tooltip: l.threads,
+            isSelected: shell.phonePane == PhonePane.threads,
+            icon: const Icon(Icons.forum_outlined),
+            selectedIcon: const Icon(Icons.forum),
+            onPressed: () => ref
+                .read(shellProvider.notifier)
+                .showPane(
+                  shell.phonePane == PhonePane.threads
+                      ? PhonePane.viewer
+                      : PhonePane.threads,
+                ),
+          ),
           IconButton(
             tooltip: l.toggleFiles,
             icon: Icon(
@@ -312,7 +347,7 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
     if (phone) {
       body = IndexedStack(
         index: shell.phonePane.index,
-        children: const [FilesPane(), ViewerPane(), AgentPane()],
+        children: const [FilesPane(), ViewerPane(), ThreadsPane(), AgentPane()],
       );
     } else {
       body = Row(
@@ -326,7 +361,11 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
               onEnd: _saveWidths,
             ),
           ],
-          const Expanded(child: ViewerPane()),
+          Expanded(
+            child: shell.phonePane == PhonePane.threads
+                ? const ThreadsPane()
+                : const ViewerPane(),
+          ),
           if (showAgent) ...[
             _DragHandle(
               onDrag: (dx) => setState(
@@ -370,18 +409,30 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
           bottomNavigationBar: phone
               ? NavigationBar(
                   key: const Key('phoneNav'),
-                  selectedIndex: shell.phonePane.index,
+                  // The viewer is reached by opening a file, so it has no
+                  // destination of its own; it counts as part of Files.
+                  selectedIndex: switch (shell.phonePane) {
+                    PhonePane.files || PhonePane.viewer => 0,
+                    PhonePane.threads => 1,
+                    PhonePane.agent => 2,
+                  },
                   onDestinationSelected: (i) => ref
                       .read(shellProvider.notifier)
-                      .showPane(PhonePane.values[i]),
+                      .showPane(
+                        const [
+                          PhonePane.files,
+                          PhonePane.threads,
+                          PhonePane.agent,
+                        ][i],
+                      ),
                   destinations: [
                     NavigationDestination(
                       icon: const Icon(Icons.folder_outlined),
                       label: l.files,
                     ),
                     NavigationDestination(
-                      icon: const Icon(Icons.article_outlined),
-                      label: l.viewer,
+                      icon: const Icon(Icons.forum_outlined),
+                      label: l.threads,
                     ),
                     NavigationDestination(
                       icon: const Icon(Icons.auto_awesome_outlined),
@@ -393,6 +444,11 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
         ),
       ),
     );
+  }
+
+  void _toRepositoryList() {
+    ref.read(currentWorkspaceProvider.notifier).close();
+    context.go('/repos');
   }
 
   Future<void> _togglePin() async {

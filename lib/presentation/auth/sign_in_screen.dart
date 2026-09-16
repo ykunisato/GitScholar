@@ -101,6 +101,12 @@ class _DeviceCodeCardState extends State<_DeviceCodeCard> {
     super.dispose();
   }
 
+  Future<void> _copy() async {
+    final l = context.l10n;
+    await Clipboard.setData(ClipboardData(text: widget.pending.userCode));
+    if (mounted) showSnack(context, l.copied);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -118,17 +124,15 @@ class _DeviceCodeCardState extends State<_DeviceCodeCard> {
             Text(l.signInEnterCode),
             const SizedBox(height: 12),
             InkWell(
-              onTap: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: widget.pending.userCode),
-                );
-                if (context.mounted) showSnack(context, l.copied);
-              },
+              onTap: _copy,
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: SelectableText(
                   widget.pending.userCode,
                   key: const Key('userCode'),
+                  // SelectableText handles taps itself, so the surrounding
+                  // InkWell never sees them. Both must copy the code.
+                  onTap: _copy,
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(
                     letterSpacing: 4,
                     fontWeight: FontWeight.bold,

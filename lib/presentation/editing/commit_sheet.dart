@@ -179,9 +179,10 @@ class _CommitSheetState extends ConsumerState<CommitSheet> {
 
   Future<void> _suggestMessage(List<PendingChange> changes) async {
     final l = context.l10n;
+    final settings = ref.read(currentSettingsProvider);
     final key = await ref
         .read(secureStoreProvider)
-        .read(SecureStore.anthropicKey);
+        .read(SecureStore.apiKeyFor(settings.aiProvider));
     if (key == null) {
       if (mounted) showSnack(context, l.apiKeyMissing);
       return;
@@ -203,10 +204,10 @@ class _CommitSheetState extends ConsumerState<CommitSheet> {
           }
         }
       }
-      final settings = ref.read(currentSettingsProvider);
-      final client = ref.read(anthropicClientFactoryProvider)(key);
-      final acc = MessageAccumulator();
-      await for (final e in client.streamMessage(
+      final client = ref.read(llmClientFactoryProvider)(key);
+      var suggestion = '';
+      String? stopReason;
+      await for (final event in client.streamTurn(
         MessageRequest.forModel(
           model: settings.aiModel,
           effort: 'low',
@@ -214,23 +215,23 @@ class _CommitSheetState extends ConsumerState<CommitSheet> {
           showThinkingSummary: false,
           messages: [
             Message.userText(
-              'Write a concise git commit message (imperative subject line under 72 characters, optional short body) '
-              'for these changes. Match the language of existing notes if obvious, otherwise English. '
-              'Reply with the commit message only.\n\n$diffs',
+              'Write a concise git commit message (imperative subject line '
+              'under 72 characters, optional short body) for these changes. '
+              'Match the language of existing notes if obvious, otherwise '
+              'English. Reply with the commit message only.\n\n$diffs',
             ),
           ],
         ),
       )) {
-        acc.apply(e);
+        if (event is LlmTurnComplete) {
+          suggestion = event.message.text;
+          stopReason = event.stopReason;
+        }
       }
-      final text = [
-        for (final b in acc.content)
-          if (b['type'] == 'text') b['text'],
-      ].join().trim();
-      if (mounted && text.isNotEmpty && acc.stopReason != 'refusal') {
-        setState(() => _message.text = text);
+      if (mounted && suggestion.isNotEmpty && stopReason != 'refusal') {
+        setState(() => _message.text = suggestion.trim());
       }
-    } on AnthropicApiException catch (e) {
+    } on LlmApiException catch (e) {
       if (mounted) showSnack(context, l.errorAi(e.message));
     } finally {
       if (mounted) setState(() => _suggesting = false);

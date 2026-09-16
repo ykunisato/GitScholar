@@ -46,5 +46,5 @@ test/           アプリのテスト
 
 ## 実装状況（2026-09）
 
-- Phase 0〜3 のチケットは実装済み。Phase 4〜5 は未着手（`docs/11_implementation_plan.md`）。
+- Phase 0〜3 のチケットは実装済み。Phase 4〜5 は一部のみ実装済み（PDFのマーカーとメモ、Discussion / Issues とリアクション）。正確な状況は `docs/11_implementation_plan.md` の実装状況表を見る。
 - UI 文字列を追加したら `lib/l10n/app_ja.arb`（テンプレート、placeholder 定義はこちら）と `app_en.arb` の両方に追加し、`flutter gen-l10n`。

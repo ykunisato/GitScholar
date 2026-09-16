@@ -118,7 +118,7 @@ GitScholar/
 │   ├── app.dart                       # MaterialApp.router、テーマ、l10n
 │   ├── router.dart                    # go_router 定義
 │   ├── domain/
-│   │   ├── entities/                  # freezed エンティティ
+│   │   ├── entities/                  # 手書きエンティティ（freezed は不採用。ADR-0009）
 │   │   ├── repositories/              # 抽象インターフェース
 │   │   └── services/                  # 純ロジック（FileKindDetector, IgnoreRules）
 │   ├── application/
@@ -126,6 +126,8 @@ GitScholar/
 │   │   ├── workspace/
 │   │   ├── editing/
 │   │   ├── agent/
+│   │   ├── threads/                   # Discussion / Issues
+│   │   ├── offline/                   # オフライン保存
 │   │   └── execution/
 │   ├── infrastructure/
 │   │   ├── github/
@@ -150,6 +152,8 @@ GitScholar/
 │   │   │   └── image/
 │   │   ├── editing/                   # 変更一覧、diff、commitダイアログ
 │   │   ├── agent/                     # AIパネル、提案カード
+│   │   ├── threads/                   # Discussion / Issues、コメント、リアクション
+│   │   ├── offline/                   # オフライン保存シート
 │   │   └── settings/
 │   └── l10n/                          # app_ja.arb, app_en.arb
 ├── packages/
@@ -158,7 +162,7 @@ GitScholar/
 │   ├── github_api/                    # GitHub REST / Device Flow クライアント
 │   └── scholar_agent/                 # Claude Messages API クライアント + エージェントループ
 ├── test/                              # lib/ に対応するテスト（同じ階層構造）
-├── integration_test/
+├── integration_test/                   # 未導入（10 §1）
 └── .github/workflows/ci.yml
 ```
 

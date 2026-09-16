@@ -109,6 +109,7 @@ MUST = そのPhaseの完了条件。SHOULD = 可能なら実装。MAY = 任意�
 | FR-66 | AIとの会話はリポジトリ単位で保存され、後から参照できる | SHOULD | 2 |
 | FR-67 | AIは `run_code` / `render_quarto` で実行バックエンド上でコードを実行し、結果を確認してから提案できる | MUST | 3 |
 | FR-68 | ユーザーは利用モデル（Claude Opus 5 既定、Sonnet 5、Fable 5.1）と effort を設定できる | SHOULD | 1 |
+| FR-68b | ユーザーは AI の提供元を選べる（Anthropic / OpenAI / OpenRouter / OpenAI互換の自前サーバ）。鍵は提供元ごとに保存する | SHOULD | 1 |
 | FR-69 | リポジトリごとに「AIに内容を送信してよいか」を設定でき、既定ではprivateリポジトリは初回に確認する。`.gitscholarignore` に一致するファイルはAIに送信しない | MUST | 1 |
 
 ### 3.6 実行環境（FR-7x）
@@ -135,12 +136,16 @@ MUST = そのPhaseの完了条件。SHOULD = 可能なら実装。MAY = 任意�
 
 | ID | 要件 | 優先度 |
 |---|---|---|
-| FR-90 | PDFにハイライト・手書き注釈を付け、注釈はPDF本体ではなく `<pdf名>.annotations.json` として同じディレクトリに保存する（ADR-0008 予定） | MUST |
+| FR-90 | PDFにハイライト（マーカー）を付け、注釈はPDF本体ではなく `<pdf名>.annotations.json` として同じディレクトリに保存する（ADR-0008）。手書き注釈は今後 | MUST |
 | FR-91 | リポジトリ内のテキスト系ファイルとPDF本文を端末内で全文検索できる | MUST |
 | FR-92 | `metadata.yaml` を読み取り、論文一覧（タイトル・著者・年・タグ・既読状態・評価）として表示・編集できる | MUST |
 | FR-93 | `references.bib` を解析し、文献一覧表示とMarkdownからの引用挿入ができる | SHOULD |
 | FR-94 | PDF本文を索引化し、AIの `search_repo` から検索できる | SHOULD |
 | FR-95 | Zoteroからの取り込み | MAY |
+| FR-96 | PDFビューアの入力バーからメモを書くと `<pdf名>.md` の末尾に追記する。ファイルが無ければ作成する（ADR-0011） | MUST |
+| FR-97 | リポジトリの Discussion と Issues を一覧・閲覧でき、画面上で切り替えられる。初回は Discussion を開き、以後は前回の選択を復元する（ADR-0012） | MUST |
+| FR-98 | スレッドにコメントを投稿できる | MUST |
+| FR-99 | スレッドの本文とコメントに絵文字リアクションを付け外しできる。GitHubの8種類に対応し、自分が付けたものが分かる | SHOULD |
 
 ### 3.9 共同研究（FR-10x、Phase 5 概要）
 
