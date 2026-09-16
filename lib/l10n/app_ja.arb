@@ -1,0 +1,537 @@
+{
+  "@@locale": "ja",
+  "appTitle": "GitScholar",
+  "about": "情報",
+  "account": "アカウント",
+  "addCodeCell": "コードセルを追加",
+  "addMarkdownCell": "Markdownセルを追加",
+  "agentEmpty": "開いている資料について質問したり、リポジトリの調査や編集を依頼できます。",
+  "ai": "AI",
+  "aiAccessAllowed": "AIへの送信を許可",
+  "aiAccessAsk": "AIへの送信時に確認",
+  "aiAccessDenied": "AIへの送信を禁止",
+  "aiAccessMessage": "{repo} の内容（開いているファイル、選択範囲、AIが読むファイル）を Anthropic API に送信します。",
+  "@aiAccessMessage": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      }
+    }
+  },
+  "aiAccessTitle": "AIにリポジトリの内容を送信しますか？",
+  "aiDenied": "このリポジトリではAIへの送信が禁止されています",
+  "aiSection": "AI",
+  "allow": "許可",
+  "allowForConversation": "この会話では常に許可",
+  "allRepositories": "すべてのリポジトリ",
+  "anthropicApiKey": "Anthropic APIキー",
+  "apiKeyHelp": "キーは端末のセキュアストレージにのみ保存されます",
+  "apiKeyInvalid": "APIキーが無効です。設定を確認してください。",
+  "apiKeyMissing": "Anthropic APIキーが未設定です",
+  "apiKeySaved": "保存済み",
+  "approve": "承認",
+  "approveAll": "すべて承認（{count}件）",
+  "@approveAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "approved": "承認済み",
+  "askAi": "AIに質問…",
+  "askAiAboutFile": "このファイルについてAIに聞く",
+  "attach": "添付",
+  "attachOpenFile": "開いているファイルを添付",
+  "attachOtherFile": "他のファイルを検索して添付",
+  "attachSelection": "選択範囲を添付",
+  "autoRunCode": "コードを確認なしで実行",
+  "autoRunCodeHelp": "オフの場合、AIがコードを実行する前に確認します",
+  "binaryChanged": "バイナリファイルが変更されました（{from} → {to}）",
+  "@binaryChanged": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "branches": "ブランチ",
+  "branchName": "ブランチ名",
+  "cacheLimit": "キャッシュ上限",
+  "cacheSection": "キャッシュ",
+  "cacheUsage": "使用量",
+  "cacheUsageOf": "{used} / {limit}",
+  "@cacheUsageOf": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "cancel": "キャンセル",
+  "cellActions": "セルの操作",
+  "cellAdded": "セル {index} を追加",
+  "@cellAdded": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "cellCount": "{count} セル",
+  "@cellCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cellModified": "セル {index} を変更",
+  "@cellModified": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "cellRemoved": "セル {index} を削除",
+  "@cellRemoved": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "changesTitle": "変更 ({count})",
+  "@changesTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "clearAll": "すべて削除",
+  "clearOutputs": "出力をクリア",
+  "commit": "コミット",
+  "commitAndPush": "コミットしてプッシュ",
+  "commitMessage": "コミットメッセージ",
+  "commitRequested": "AIがコミットを依頼しています",
+  "committed": "コミットしました {sha}（{branch}）",
+  "@committed": {
+    "placeholders": {
+      "sha": {
+        "type": "String"
+      },
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "commitToNewBranch": "新しいブランチにコミット",
+  "conflictCommitOthers": "競合しないファイルだけコミット",
+  "conflictDiscardMine": "自分の変更を破棄",
+  "conflictMessage": "リモートで同じファイルが変更されています。",
+  "conflictOverwrite": "自分の変更で上書き",
+  "conflictReview": "リモートの内容を確認",
+  "conflictReviewHint": "ファイルは最新のリモート内容を基準に表示されています。編集してから再度コミットしてください。",
+  "conflictTitle": "競合があります",
+  "connectionOk": "接続できました",
+  "context": "文脈",
+  "contextExplanation": "これらの内容がAnthropic APIに送信されます。AIはツールで他のファイルを読むこともあります（.gitscholarignore の対象は除く）。",
+  "contextLarge": "会話が長くなっています。新しい会話を始めると応答が速く安くなります。",
+  "contextRestricted": "このファイルは .gitscholarignore によりAIに送信されません",
+  "contextSent": "AIに送信される文脈",
+  "continueLabel": "続ける",
+  "continuePrompt": "続けてください",
+  "copied": "コピーしました",
+  "copyPath": "パスをコピー",
+  "defaultKernel": "既定のカーネル",
+  "delete": "削除",
+  "deleteConversationConfirm": "この会話を削除しますか？",
+  "deleteFileConfirm": "{path} を削除しますか？（コミットするまでGitHubには反映されません）",
+  "@deleteFileConfirm": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "deletePendingChanges": "未コミットの変更も削除する",
+  "deny": "拒否",
+  "designDocs": "設計書",
+  "diff": "差分",
+  "diffTooLarge": "差分が大きすぎるため全文を表示しています",
+  "discard": "変更を破棄",
+  "discardConfirm": "{path} の変更を破棄しますか？",
+  "@discardConfirm": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "dismissed": "却下",
+  "displaySection": "表示",
+  "done": "完了",
+  "dontAskAgain": "このリポジトリでは今後確認しない",
+  "editMode": "編集",
+  "editorFontSize": "エディタの文字サイズ",
+  "effort": "Effort",
+  "effortHelp": "高いほど丁寧に考えますが時間と費用が増えます",
+  "emptyCell": "（空のセル）",
+  "emptyNotebook": "セルがありません",
+  "enableJs": "JavaScriptを有効にする",
+  "enableJsWarning": "この出力に含まれるスクリプトを実行します。信頼できるNotebookの場合のみ有効にしてください。外部への通信は引き続きブロックされます。",
+  "errorAccessDenied": "GitHubでの認可が拒否されました",
+  "errorAi": "AIエラー: {message}",
+  "@errorAi": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "errorAuth": "GitHubの認証が切れました。再度サインインしてください。",
+  "errorConflict": "リモートが更新されています。もう一度お試しください。",
+  "errorDeviceCodeExpired": "コードの有効期限が切れました。もう一度お試しください。",
+  "errorNetwork": "ネットワークに接続できません。オンラインになってから再試行してください。",
+  "errorNoClientId": "GitHub OAuth のクライアントIDが設定されていません（--dart-define=GITHUB_CLIENT_ID）",
+  "errorInvalidClientId": "GitHub OAuth App が見つかりません。クライアントIDが正しいか、Device Flow が有効になっているか確認してください。",
+  "errorNotFound": "見つかりません: {message}",
+  "@errorNotFound": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "errorRateLimit": "GitHub APIの利用上限に達しました。しばらく待ってから再試行してください。",
+  "errorRateLimitUntil": "GitHub APIの利用上限に達しました。{time} 以降に再試行してください。",
+  "@errorRateLimitUntil": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "executionLog": "実行ログ",
+  "executionNotConfigured": "実行環境（Jupyter）が設定されていません",
+  "executionSection": "実行環境 (Jupyter)",
+  "files": "ファイル",
+  "fileTooLarge": "ファイルが大きすぎるため表示できません",
+  "fileUnsupported": "この形式は表示できません",
+  "fileWillBeDeleted": "このファイルは削除されます",
+  "filterFiles": "ファイル名で絞り込み",
+  "find": "検索",
+  "frontMatter": "フロントマター",
+  "goToPage": "ページへ移動",
+  "history": "会話履歴",
+  "insertCodeAbove": "上にコードセルを挿入",
+  "insertCodeBelow": "下にコードセルを挿入",
+  "insertMarkdownBelow": "下にMarkdownセルを挿入",
+  "interrupt": "中断",
+  "jsDisabled": "JavaScript無効で表示中",
+  "jsEnabled": "JavaScript有効",
+  "jupyterConnected": "接続できました（Jupyter Server {version}）",
+  "@jupyterConnected": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "jupyterToken": "トークン",
+  "jupyterUrl": "Jupyter Server / JupyterHub のURL",
+  "kindCreated": "新規",
+  "kindDeleted": "削除",
+  "kindModified": "変更",
+  "kindRenamed": "名前変更",
+  "language": "言語",
+  "loadedCount": "{count} 件取得",
+  "@loadedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "logAiContent": "AIとのやりとりをログに出力（デバッグ）",
+  "maxTokensReached": "出力が長すぎて途中で切れました",
+  "modeEdit": "編集",
+  "model": "モデル",
+  "modePreview": "プレビュー",
+  "modeSplit": "分割",
+  "moveDown": "下へ移動",
+  "moveUp": "上へ移動",
+  "newConversation": "新しい会話",
+  "newFile": "新規ファイル",
+  "noChanges": "未コミットの変更はありません",
+  "noContext": "なし",
+  "noConversations": "会話はまだありません",
+  "noDifferences": "差分はありません",
+  "noFileOpen": "左のファイル一覧からファイルを開いてください",
+  "noFiles": "ファイルがありません",
+  "noRepositories": "リポジトリが見つかりません",
+  "noRuns": "まだ実行していません",
+  "ok": "OK",
+  "open": "開く",
+  "openInBrowser": "ブラウザで開く",
+  "openOnGitHub": "GitHubで開く",
+  "outputsUpdated": "出力が更新されました",
+  "pageNumber": "ページ番号（1〜{max}）",
+  "@pageNumber": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "path": "パス",
+  "private": "非公開",
+  "proposal": "変更提案",
+  "proposalsExcluded": "承認待ちのAI提案 {count} 件は含まれません",
+  "@proposalsExcluded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rateLimitRemaining": "GitHub API 残り {count} 回",
+  "@rateLimitRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "recent": "最近",
+  "refresh": "更新",
+  "refused": "AIがこの依頼に応答できませんでした",
+  "reject": "却下",
+  "rejected": "却下済み",
+  "remoteUpdated": "このファイルはGitHub上で更新されたため、最新の内容を表示しています",
+  "rename": "名前を変更",
+  "repositories": "リポジトリ",
+  "restartKernel": "カーネルを再起動",
+  "retry": "再試行",
+  "review": "確認する",
+  "run": "実行",
+  "runAll": "すべて実行",
+  "runCell": "セルを実行",
+  "runCodeConfirm": "AIが {tool} でコードを実行しようとしています",
+  "@runCodeConfirm": {
+    "placeholders": {
+      "tool": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "保存",
+  "saved": "保存しました",
+  "searchRepositories": "リポジトリを検索",
+  "send": "送信",
+  "servedByFallback": "代替モデル {model} が応答",
+  "@servedByFallback": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "settings": "設定",
+  "showAllLines": "すべて表示（{count} 行）",
+  "@showAllLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "showDiff": "差分を表示",
+  "showHtml": "HTMLを表示",
+  "showOutputs": "出力を表示（{count}）",
+  "@showOutputs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "showSource": "ソースを表示",
+  "showSvg": "SVGを表示",
+  "showThinkingSummary": "思考の要約を表示",
+  "sideBySide": "左右",
+  "signInEnterCode": "ブラウザで次のコードを入力してください",
+  "signInExpiresIn": "有効期限まで {time}",
+  "@signInExpiresIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "signInTagline": "GitHub上の論文・ノート・Notebook・コードを読み、書き、AIと一緒に研究するワークスペース",
+  "signInWaiting": "ブラウザで認可すると自動的に進みます",
+  "signInWithGitHub": "GitHubでサインイン",
+  "signOut": "サインアウト",
+  "signOutConfirm": "サインアウトすると、トークン・会話履歴・非公開リポジトリのキャッシュが削除されます。",
+  "sortName": "名前",
+  "sortUpdated": "更新日",
+  "stop": "停止",
+  "suggestMessage": "AIにメッセージを提案してもらう",
+  "tableOfContents": "目次",
+  "tapToCopy": "タップしてコピー",
+  "testConnection": "接続テスト",
+  "testing": "確認中…",
+  "theme": "テーマ",
+  "themeDark": "ダーク",
+  "themeLight": "ライト",
+  "themeSystem": "端末の設定",
+  "thinkingSummary": "思考の要約",
+  "toBranch": "{repo} の {branch} へ",
+  "@toBranch": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      },
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "toCode": "コードセルに変更",
+  "toggleAgent": "AIパネル",
+  "toggleFiles": "ファイル一覧",
+  "toMarkdown": "Markdownセルに変更",
+  "toolLimitReached": "作業が長くなったため一旦停止しました",
+  "treeSummary": "ツリー概要",
+  "treeTruncated": "ツリーが大きすぎるため一部のみ表示しています",
+  "unified": "統合",
+  "upstreamChanged": "リモートで変更あり",
+  "upToDate": "最新です",
+  "usageFooter": "入力 {input}（キャッシュ {cached}）/ 出力 {output}",
+  "@usageFooter": {
+    "placeholders": {
+      "input": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "viewer": "ビューア",
+  "viewMode": "表示",
+  "wordWrap": "行の折り返し",
+  "pin": "ピン留め",
+  "unpin": "ピン留めを解除",
+  "pinnedSection": "ピン留め",
+  "pinLimit": "ピン留めは最大{count}件です。どれかを解除してください。",
+  "@pinLimit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineTitle": "オフラインで使う",
+  "offlineBadge": "オフライン",
+  "offlineWholeRepo": "リポジトリ全体",
+  "offlineFolders": "フォルダを選ぶ",
+  "offlineNoFolders": "フォルダがありません",
+  "offlineEstimate": "対象 {count} 件 / 合計 {size}",
+  "@offlineEstimate": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineAlreadyCached": "うち取得済み {size}",
+  "@offlineAlreadyCached": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineSkipped": "対象外 {count} 件（除外設定または大きすぎるファイル）",
+  "@offlineSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineDownload": "ダウンロード",
+  "offlineUpdate": "更新をダウンロード",
+  "offlineCancel": "中断",
+  "offlineCancelled": "中断しました",
+  "offlineProgress": "{done} / {total} 件",
+  "@offlineProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineFailed": "失敗 {count} 件",
+  "@offlineFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineFinished": "完了（{size} を取得）",
+  "@offlineFinished": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineDelete": "オフラインデータを削除",
+  "offlineDeleteConfirm": "{repo} のオフライン用データを削除しますか？未コミットの変更は残ります。",
+  "@offlineDeleteConfirm": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineEnabled": "オフラインで利用できます",
+  "offlineUpdatedAt": "オフライン保存日 {date}",
+  "@offlineUpdatedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineOutdated": "{count} 件のファイルがリモートで更新されています",
+  "@offlineOutdated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineOpenRepoFirst": "リポジトリを開いてから設定します"
+}

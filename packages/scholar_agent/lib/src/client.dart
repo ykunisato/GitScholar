@@ -1,0 +1,130 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+import 'errors.dart';
+import 'request.dart';
+import 'sse.dart';
+
+/// Supplies authentication headers (API key today, a proxy token later;
+/// docs/07_ai_agent.md §9).
+abstract class HeaderProvider {
+  /// Headers to add to every request.
+  Future<Map<String, String>> headers();
+}
+
+/// `x-api-key` authentication.
+class ApiKeyHeaderProvider implements HeaderProvider {
+  /// Creates the provider.
+  const ApiKeyHeaderProvider(this.apiKey);
+
+  /// The API key.
+  final String apiKey;
+
+  @override
+  Future<Map<String, String>> headers() async => {'x-api-key': apiKey};
+}
+
+/// Streaming Messages API client.
+class AnthropicClient {
+  /// Creates a client.
+  AnthropicClient({
+    required this.auth,
+    http.Client? client,
+    this.baseUrl = 'https://api.anthropic.com',
+    this.maxRetries = 2,
+    Future<void> Function(Duration)? delay,
+  }) : _http = client ?? http.Client(),
+       _delay = delay ?? Future<void>.delayed;
+
+  /// Convenience constructor for an API key.
+  factory AnthropicClient.withApiKey(String apiKey, {http.Client? client}) =>
+      AnthropicClient(auth: ApiKeyHeaderProvider(apiKey), client: client);
+
+  /// Auth headers.
+  final HeaderProvider auth;
+
+  /// API base URL.
+  final String baseUrl;
+
+  /// Retries for overloaded / 5xx / connection errors before streaming starts.
+  final int maxRetries;
+
+  final http.Client _http;
+  final Future<void> Function(Duration) _delay;
+
+  /// API version header value.
+  static const apiVersion = '2023-06-01';
+
+  /// Sends [request] and streams decoded events.
+  ///
+  /// Cancelling the subscription stops reading the response.
+  Stream<ApiStreamEvent> streamMessage(MessageRequest request) async* {
+    final response = await _sendWithRetry(request);
+    yield* decodeApiEvents(parseSse(response.stream));
+  }
+
+  Future<http.StreamedResponse> _sendWithRetry(MessageRequest request) async {
+    var attempt = 0;
+    while (true) {
+      try {
+        return await _send(request);
+      } on AnthropicApiException catch (e) {
+        final retryable =
+            e.statusCode == 0 ||
+            e.statusCode >= 500 ||
+            e.type == 'overloaded_error';
+        if (!retryable || attempt >= maxRetries) rethrow;
+        await _delay(Duration(seconds: 1 << attempt));
+        attempt++;
+      }
+    }
+  }
+
+  Future<http.StreamedResponse> _send(MessageRequest request) async {
+    final req = http.Request('POST', Uri.parse('$baseUrl/v1/messages'))
+      ..headers.addAll(await auth.headers())
+      ..headers['anthropic-version'] = apiVersion
+      ..headers['content-type'] = 'application/json'
+      ..body = jsonEncode(request.toJson());
+    if (request.betas.isNotEmpty) {
+      req.headers['anthropic-beta'] = request.betas.join(',');
+    }
+    final http.StreamedResponse res;
+    try {
+      res = await _http.send(req);
+    } on SocketException catch (e) {
+      throw AnthropicApiException(0, e.message);
+    } on http.ClientException catch (e) {
+      throw AnthropicApiException(0, e.message);
+    }
+    if (res.statusCode >= 400) {
+      final body = await res.stream.bytesToString();
+      var message = 'HTTP ${res.statusCode}';
+      String? type;
+      try {
+        final j = jsonDecode(body);
+        if (j is Map && j['error'] is Map) {
+          final err = j['error'] as Map;
+          message = '${err['message'] ?? message}';
+          type = err['type'] as String?;
+        }
+      } on FormatException {
+        // Keep generic message.
+      }
+      final retry = int.tryParse(res.headers['retry-after'] ?? '');
+      throw AnthropicApiException(
+        res.statusCode,
+        message,
+        type: type,
+        retryAfter: retry == null ? null : Duration(seconds: retry),
+      );
+    }
+    return res;
+  }
+
+  /// Closes the HTTP client.
+  void close() => _http.close();
+}

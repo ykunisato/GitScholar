@@ -1,0 +1,9 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    - prefer_final_locals
+    - avoid_dynamic_calls
+    - unawaited_futures
+    - always_declare_return_types
+    - public_member_api_docs

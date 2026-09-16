@@ -1,0 +1,20 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "packages/**"
+    - "build/**"
+    - android/**
+    - ios/**
+  errors:
+    invalid_annotation_target: ignore
+
+linter:
+  rules:
+    - prefer_final_locals
+    - avoid_dynamic_calls
+    - unawaited_futures
+    - always_declare_return_types
+    - avoid_print
