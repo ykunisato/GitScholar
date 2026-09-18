@@ -4,6 +4,8 @@ GitHub 上の論文・研究ノート・Jupyter Notebook・分析コードを iP
 
 設計書は [docs/](docs/README.md)、AI コーディングエージェント向けの作業ルールは [CLAUDE.md](CLAUDE.md) にあります。
 
+プライバシーポリシーは [PRIVACY.md](PRIVACY.md)、ライセンスは MIT（[LICENSE](LICENSE)）です。
+
 ## 主な機能
 
 - GitHub サインイン（OAuth Device Flow）とリポジトリ選択
@@ -98,6 +100,16 @@ flutter run -d <端末ID> --dart-define-from-file=env.json
 無料の Apple ID で署名した場合、プロビジョニングの有効期限は約1週間です。期限が切れて起動しなくなったら、上のビルドとインストールを流し直せば復帰します。有料の Apple Developer Program に加入すると1年になり、TestFlight でも配布できます。
 
 なお `flutter` コマンドは `pubspec.yaml` のあるディレクトリで実行します。別の場所で実行すると `No pubspec.yaml file found` になります。
+
+## GitHubのリンクから開く
+
+Discord やブラウザで見かけたリポジトリのリンクを、GitScholar で直接開けます。
+
+リンクを長押しして共有を選び、一覧から GitScholar を選んでください。`https://github.com/owner/repo` のほか、`/blob/` や `/tree/` のURLならブランチとファイルの位置まで引き継ぎます。サインイン前に共有した場合は、サインインが終わってから開きます。
+
+リンクをタップしただけで GitScholar が起動するようにもできますが、Android の設定で手動登録が必要です。設定 → アプリ → GitScholar → 標準で開く → リンクを追加 で `github.com` を選びます。自動で登録されないのは、リンクの所有者を証明する `assetlinks.json` を github.com 側に置けないためです。
+
+iOS ではこの仕組みを使えません。https のリンクを他のアプリが横取りするには github.com に Apple 指定のファイルを置く必要があり、こちらでは用意できないためです。
 
 ## 組織のリポジトリを使う場合
 

@@ -13,8 +13,11 @@ import '../../application/auth/auth_service.dart';
 import '../../application/editing/change_diff.dart';
 import '../../application/editing/commit_service.dart';
 import '../../application/editing/editing_service.dart';
+import '../../application/editing/file_copy_service.dart';
 import '../../application/editing/pdf_sidecar_service.dart';
 import '../../application/threads/thread_service.dart';
+import '../../domain/services/github_url.dart';
+import '../../infrastructure/platform/incoming_links.dart';
 import '../../application/execution/execution_service.dart';
 import '../../application/workspace/workspace_service.dart';
 import '../../config.dart';
@@ -406,6 +409,13 @@ final pdfSidecarServiceProvider = Provider<PdfSidecarService>(
   ),
 );
 
+final fileCopyServiceProvider = Provider<FileCopyService>(
+  (ref) => FileCopyService(
+    editing: ref.watch(editingServiceProvider),
+    workspaces: ref.watch(workspaceServiceProvider),
+  ),
+);
+
 final agentServiceProvider = Provider<AgentService>(
   (ref) => AgentService(
     db: ref.watch(databaseProvider),
@@ -780,6 +790,30 @@ final threadListProvider = FutureProvider.autoDispose<List<RepoThread>?>((
     rethrow;
   }
 });
+
+final incomingLinksProvider = Provider<IncomingLinks>((ref) => IncomingLinks());
+
+/// Repository link shared into the app and not opened yet (FR-100). It is
+/// held until the user is signed in, so a link shared while signed out is not
+/// thrown away.
+class PendingLinkController extends Notifier<GitHubUrlTarget?> {
+  @override
+  GitHubUrlTarget? build() => null;
+
+  /// Parses [raw] and keeps it when it points at a repository.
+  void offer(String? raw) {
+    if (raw == null) return;
+    final target = parseGitHubUrl(raw);
+    if (target != null) state = target;
+  }
+
+  void clear() => state = null;
+}
+
+final pendingLinkProvider =
+    NotifierProvider<PendingLinkController, GitHubUrlTarget?>(
+      PendingLinkController.new,
+    );
 
 // ---------------------------------------------------------------------- UI
 

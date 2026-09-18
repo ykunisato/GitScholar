@@ -29,6 +29,8 @@
 - 削除: `ChangeKind.delete`。ツリーでは取り消し線表示。
 - リネーム: `ChangeKind.rename`（`oldPath` → `path`）。内容変更を伴う場合も1つのPendingChangeで表す。
 
+別リポジトリへのコピー（FR-101）も同じ仕組みに乗る。コピー先のワークスペースを読み（キャッシュがあれば使う）、`EditingService.saveBytes` で保留中の変更を作るだけで、GitHubへの書き込みは行わない。コピー元には何も起きないため、読み取り専用のリポジトリからでも持ち出せる。書き込み権限が無いリポジトリを選んだ場合は、コミット時にAPIのエラーとして表れる。
+
 PDFのマーカー（`<pdf名>.annotations.json`）とメモ（`<pdf名>.md`）も専用の保存先を持たず、通常のファイル編集として扱う。保存すると `PendingChange` になり、変更一覧に並び、コミットは他の編集と同じ操作で行う（ADR-0008, ADR-0011）。
 
 ## 2. diff（`packages/text_diff`）

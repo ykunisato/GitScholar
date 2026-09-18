@@ -156,6 +156,8 @@ GitScholar/
 │   │   ├── offline/                   # オフライン保存シート
 │   │   └── settings/
 │   └── l10n/                          # app_ja.arb, app_en.arb
+├── assets/
+│   └── icon/                           # アイコン原本（SVG）と 1024px PNG。PNG一式は各プラットフォームの所定の場所に書き出す
 ├── packages/
 │   ├── nbformat/                      # .ipynb パーサ・シリアライザ
 │   ├── text_diff/                     # Myers diff

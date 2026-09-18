@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- GitScholar app icon (A2). 原稿にコミット履歴のグラフを重ねた図。 -->
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E9C60"/>
+      <stop offset="1" stop-color="#157244"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#ground)"/>
+  <rect x="252" y="168" width="520" height="688" rx="34" fill="#FBFAF6"/>
+  <rect x="470" y="272" width="220" height="30" rx="15" fill="#C9D8CF"/>
+  <rect x="470" y="356" width="180" height="30" rx="15" fill="#C9D8CF"/>
+  <rect x="470" y="596" width="220" height="30" rx="15" fill="#C9D8CF"/>
+  <rect x="470" y="680" width="150" height="30" rx="15" fill="#C9D8CF"/>
+  <path d="M362 300 V724" stroke="#1B7A4B" stroke-width="34" stroke-linecap="round" fill="none"/>
+  <path d="M362 462 C362 400 420 400 470 400" stroke="#1B7A4B" stroke-width="30" stroke-linecap="round" fill="none"/>
+  <circle cx="362" cy="300" r="56" fill="#0F5133"/>
+  <circle cx="362" cy="512" r="56" fill="#0F5133"/>
+  <circle cx="362" cy="724" r="56" fill="#0F5133"/>
+  <circle cx="694" cy="400" r="48" fill="#1B7A4B"/>
+</svg>

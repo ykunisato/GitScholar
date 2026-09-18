@@ -53,7 +53,8 @@ extension AppColorsX on BuildContext {
   AppColors get colors => Theme.of(this).extension<AppColors>()!;
 }
 
-const _seed = Color(0xFF2F4B7C);
+/// アイコンの緑に合わせた種色（assets/icon/gitscholar_icon.svg）。
+const _seed = Color(0xFF1B7A4B);
 
 ThemeData buildTheme(Brightness brightness) {
   final scheme = ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);

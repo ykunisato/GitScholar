@@ -220,6 +220,31 @@ void main() {
     await disposeTree(tester);
   });
 
+  testWidgets('a shared file link opens the file, not just the repo', (
+    tester,
+  ) async {
+    // 共有されたリンクは /ws/:owner/:repo?path=... として渡ってくる。
+    await tester.pumpWidget(
+      harness(
+        env,
+        size: const Size(420, 800),
+        child: const WorkspaceShell(
+          owner: 'alice',
+          name: 'research',
+          initialPath: 'notes/a.md',
+        ),
+      ),
+    );
+    await settle(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WorkspaceShell)),
+    );
+    expect(container.read(openFilesProvider).active, 'notes/a.md');
+    // フォンではビューアに切り替わらないと、開いたことが画面に出ない。
+    expect(container.read(shellProvider).phonePane, PhonePane.viewer);
+    await disposeTree(tester);
+  });
+
   testWidgets('threads pane lists discussions and posts a comment', (
     tester,
   ) async {

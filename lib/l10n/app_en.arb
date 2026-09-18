@@ -287,5 +287,12 @@
   "repoListShort": "Repos",
   "repoListHint": "Back to the repository list",
   "reactions": "Reactions",
-  "addReaction": "Add reaction"
+  "addReaction": "Add reaction",
+  "copyToRepo": "Copy to another repository",
+  "copyDestination": "Destination repository",
+  "copyPathLabel": "Path to save",
+  "copyReplaceWarning": "A file with this name exists and will be replaced",
+  "copyDone": "Copied to {repo}",
+  "copyViewChanges": "View changes",
+  "copySameContent": "The content is identical, so there is nothing to commit"
 }

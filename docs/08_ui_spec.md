@@ -14,6 +14,14 @@
 
 認証ガード: `authStateProvider` が `signedOut` なら `/signin` へ。
 
+### 1.1 外部から渡されたリンク（FR-100）
+
+他アプリの共有シートから `text/plain` を受け取り、本文に含まれる最初の github.com のリポジトリURLを `GitHubUrlTarget` に解析して `/ws/:owner/:repo` へ遷移する。`/blob/` と `/tree/` のURLは `branch` と `path` も引き継ぐ。issues や pull などリポジトリ配下の他のページは、リポジトリのみを開く。
+
+受け取りは `MethodChannel('jp.gitscholar/links')`。パッケージを追加しないための実装で、Android 側は `MainActivity` が `ACTION_SEND` と `ACTION_VIEW` を拾う。iOS は https リンクを横取りできない（`apple-app-site-association` を github.com に置けないため）。
+
+サインイン前に共有された場合、リンクは `pendingLinkProvider` に保持し、サインイン完了後に開く。
+
 ## 2. レスポンシブ（FR-80）
 
 `LayoutBuilder` の幅で分岐。ブレークポイント 600dp（`presentation/core/breakpoints.dart`）。
@@ -139,7 +147,7 @@ Discussion と Issues の一覧。上部に `SegmentedButton` で [Discussion] [
 
 ## 4. テーマ
 
-- Material 3。`ColorScheme.fromSeed`（シード色は落ち着いた藍系）。ライト/ダーク。
+- Material 3。`ColorScheme.fromSeed`（シード色 `#1B7A4B`。アプリアイコンの緑に合わせている。`assets/icon/gitscholar_icon.svg`）。ライト/ダーク。
 - モノスペースフォント: プラットフォーム既定（iOS: Menlo、Android: monospace）。バンドルフォントは追加しない。
 - diff配色、Notebookセル背景、stderr背景は `AppColors`（ThemeExtension）に定義し、ハードコードしない。
 

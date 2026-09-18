@@ -60,9 +60,12 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
   @override
   void didUpdateWidget(WorkspaceShell old) {
     super.didUpdateWidget(old);
+    // initialPath も見る。同じリポジトリを開いたまま別のファイルのリンクを
+    // 共有されたとき、パスだけが変わるため（FR-100）。
     if (old.owner != widget.owner ||
         old.name != widget.name ||
-        old.branch != widget.branch) {
+        old.branch != widget.branch ||
+        old.initialPath != widget.initialPath) {
       _open();
     }
   }
@@ -113,7 +116,10 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
 
   void _openInitialPath() {
     final p = widget.initialPath;
-    if (p != null && p.isNotEmpty) ref.read(openFilesProvider.notifier).open(p);
+    if (p == null || p.isEmpty || !mounted) return;
+    // openPath はタブを開いたうえで、フォンではビューアに切り替える。
+    // ビューアは専用タブを持たないので、切り替えないと開いたことが見えない。
+    openPath(context, ref, p);
   }
 
   void _saveWidths() => ref.read(databaseProvider).setValue('pane_widths', {

@@ -584,5 +584,19 @@
   "repoListShort": "一覧",
   "repoListHint": "リポジトリ一覧に戻る",
   "reactions": "リアクション",
-  "addReaction": "リアクションを追加"
+  "addReaction": "リアクションを追加",
+  "copyToRepo": "他のリポジトリにコピー",
+  "copyDestination": "コピー先のリポジトリ",
+  "copyPathLabel": "保存するパス",
+  "copyReplaceWarning": "同じ名前のファイルがあります。置き換えになります",
+  "copyDone": "{repo} にコピーしました",
+  "@copyDone": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      }
+    }
+  },
+  "copyViewChanges": "変更を見る",
+  "copySameContent": "内容が同じため、変更はありません"
 }

@@ -5,7 +5,7 @@
 | 情報 | 保存先 | 備考 |
 |---|---|---|
 | GitHub アクセストークン | `flutter_secure_storage` key `github_access_token` | Keychain / EncryptedSharedPreferences |
-| Anthropic API キー | 同 `anthropic_api_key` | |
+| AI提供元の API キー | 同 `api_key_<provider>`（`SecureStore.apiKeyFor(provider)`） | 提供元ごとに別々に保存（ADR-0010） |
 | Jupyter トークン | 同 `jupyter_token` | |
 | GitHub OAuth Client ID | ソースに埋め込み可（秘密ではない） | |
 
@@ -44,6 +44,8 @@ GitHubへの書き込みには2種類ある。ファイルの変更は保留中�
 
 - 依存追加は 02 §6 の一覧に限定し、追加時は ADR を書く。
 - `flutter pub outdated` を月1回確認（CIで警告）。
+
+公開用のプライバシーポリシーは リポジトリ直下の `PRIVACY.md`（英語と日本語）。本章の内容と食い違わせない。
 
 ## 7. ストア審査上の注意
 

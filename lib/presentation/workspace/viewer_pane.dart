@@ -7,6 +7,7 @@ import '../../domain/services/file_kind_detector.dart';
 import '../agent/agent_controller.dart';
 import '../core/providers.dart';
 import '../core/widgets.dart';
+import '../editing/copy_to_repo_sheet.dart';
 import '../viewers/viewer_dispatcher.dart';
 
 /// Tabs, per-file toolbar and viewer (docs/08_ui_spec.md §3.4).
@@ -31,6 +32,8 @@ class ViewerPane extends ConsumerWidget {
       shellProvider.select((s) => s.editing.contains(active)),
     );
     final changedPaths = {for (final c in pending) c.path};
+    // コピーには中身が要るので、読み込みが終わるまでボタンは押せない。
+    final content = ref.watch(fileContentProvider(active)).value;
     return Column(
       children: [
         SizedBox(
@@ -77,6 +80,14 @@ class ViewerPane extends ConsumerWidget {
                       .read(shellProvider.notifier)
                       .setEditing(active, !editing),
                 ),
+              IconButton(
+                key: const Key('copyToRepo'),
+                tooltip: l.copyToRepo,
+                icon: const Icon(Icons.drive_file_move_outline),
+                onPressed: content == null
+                    ? null
+                    : () => showCopyToRepoSheet(context, ref, content),
+              ),
               IconButton(
                 tooltip: l.askAiAboutFile,
                 icon: const Icon(Icons.auto_awesome_outlined),
