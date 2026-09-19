@@ -12,7 +12,10 @@
 - 上記を drift DB、ファイル、ログ、クラッシュレポート、`SharedPreferences` に書かない（NFR-30）。CIで `grep -rn "access_token\|api_key" lib/ --include=*.dart` の結果を目視レビューする（`SecureStore` と `AppLogger` のマスク処理以外に出現しないこと）。
 - ログアウト（FR-12）: トークン削除 + 会話履歴削除 + 保留中の変更削除の確認 + private リポジトリのキャッシュ blob 削除。
 - iOS: `NSFileProtectionComplete` をアプリコンテナに適用（`Info.plist` の `NSFileProtection`）。Android: `android:allowBackup="false"`。
-- Android のセキュアストレージは `resetOnError: false` で使う（既定は復号失敗時に全消去）。読み書きが失敗してもアプリは動作を続け、次回起動時に再サインインを求めるだけにする。
+- Android のセキュアストレージは `resetOnError: false` で使う（既定は復号失敗時に全消去）。
+- **保存領域の失敗と「値が無い」ことを区別する**（`SecureStorageFailure`）。両者を同一視すると、一度の読み取り失敗がサインアウトに化け、さらに `onAuthFailure` が有効なトークンを削除して恒久化する。読み取りは1回再試行し、それでも失敗したら例外にする。
+- 書き込みは**保存後に読み返して確認する**。握りつぶすと、セッションがメモリ上だけで成立し、プロセスが終了した時点で理由の分からないサインアウトになる。
+- トークンの削除は、GitHubが実際にトークンを拒否した場合に限る。トークンが手元に無い状態で起きた認証失敗では削除しない。
 
 ## 2. 通信
 

@@ -28,6 +28,13 @@ class AuthFailure extends AppFailure {
   final String? code;
 }
 
+/// The secure storage could not be read or written. This is **not** the
+/// same as "no value stored": treating it as absent silently signs the user
+/// out and can delete a still-valid token (docs/09 §1).
+class SecureStorageFailure extends AppFailure {
+  const SecureStorageFailure(super.message, {super.cause});
+}
+
 /// Rate limit exhausted.
 class RateLimitFailure extends AppFailure {
   const RateLimitFailure(super.message, {super.cause, this.resetAt});

@@ -31,7 +31,13 @@ class AuthService {
   /// Restores the session. Returns null when signed out. Uses the cached
   /// user when offline.
   Future<GitHubUser?> restore() async {
-    final token = await secure.read(SecureStore.githubToken);
+    final String? token;
+    try {
+      token = await secure.read(SecureStore.githubToken);
+    } on SecureStorageFailure {
+      // 保存領域が読めないだけ。トークンは消さず、次回の起動に賭ける。
+      return null;
+    }
     if (token == null) return null;
     try {
       final user = await gatewayFor(token).currentUser();

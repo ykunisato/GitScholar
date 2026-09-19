@@ -347,8 +347,15 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   /// Called when any request reports a revoked token (docs/04 §1.2).
+  /// Signs out after an authentication failure.
+  ///
+  /// The stored token is deleted only when there was a token to reject. A
+  /// failure raised because the token was missing in memory (a failed read,
+  /// for instance) must not delete a token that is still valid on disk.
   Future<void> onAuthFailure() async {
-    await ref.read(secureStoreProvider).delete(SecureStore.githubToken);
+    if (ref.read(githubTokenProvider) != null) {
+      await ref.read(secureStoreProvider).delete(SecureStore.githubToken);
+    }
     ref.read(githubTokenProvider.notifier).set(null);
     state = const AsyncData(SignedOut());
   }
