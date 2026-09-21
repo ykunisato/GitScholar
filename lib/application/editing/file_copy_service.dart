@@ -1,4 +1,6 @@
 import '../../domain/entities/entities.dart';
+import '../../domain/failures.dart';
+import '../../domain/services/git_attributes.dart';
 import '../../domain/services/path_utils.dart';
 import '../workspace/workspace_service.dart';
 import 'editing_service.dart';
@@ -45,6 +47,15 @@ class FileCopyService {
   }) async {
     final path = normalizePath(targetPath);
     final destination = await _workspaceFor(target, branch);
+    // コピー先が Git LFS で管理している種類のファイルは、通常の blob として
+    // 書き込むとLFSを迂回し、実体がリポジトリに残り続ける（docs/04 §2.1b）。
+    final attributes = await workspaces.tryReadText(
+      destination,
+      '.gitattributes',
+    );
+    if (isLfsTracked(attributes, path)) {
+      throw LfsUnsupportedFailure(path);
+    }
     final change = await editing.saveBytes(destination, path, source.bytes);
     return FileCopyResult(path: path, change: change);
   }

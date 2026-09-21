@@ -99,6 +99,30 @@ class GitHubClient {
 | 単一ファイル更新 | `PUT /repos/{owner}/{repo}/contents/{path}` `{message, content: base64, sha?, branch}` | 1ファイルのみのcommit時に使う近道。レスポンスの `content.sha`, `commit.sha` を使う |
 | レート制限 | `GET /rate_limit` | 設定画面の診断用 |
 
+### 2.1b Git LFS（FR-102）
+
+LFS で管理されたファイルは、Git Data API の blob には**ポインタ**（`version https://git-lfs.github.com/spec/v1` / `oid sha256:...` / `size ...` の3行、1KB未満）しか入っていない。そのまま表示するとPDFなら `FPDF_ERR_FORMAT` になる。論文リポジトリでは普通に使われるため、実体の取得に対応する。
+
+| 手順 | 内容 |
+|---|---|
+| 1 | blob の中身を `LfsPointer.parse` にかける。ポインタでなければ何もしない |
+| 2 | `POST https://github.com/{o}/{r}.git/info/lfs/objects/batch` に `operation: download` を送る。`Accept` と `Content-Type` は `application/vnd.git-lfs+json` |
+| 3 | 送る `oid` は**接頭辞なしのdigest**。ポインタの `sha256:` を付けたまま送ると、サーバは `objects[0].error` に 404 `Object does not exist on the server` を返す |
+| 4 | 認証はトークンを HTTP Basic のパスワードとして送る。401 なら Bearer で再試行する |
+| 5 | 応答の `objects[0].actions.download.href` を、同じ応答の `header` を付けて GET する |
+| 6 | 取得したバイト列を `size` と `oid`（sha256）で検証してから使う。検証に失敗したものはキャッシュしない |
+
+LFSサーバの認証はAPI本体とは別に行われる。ここでの401を `AuthFailure` のまま流すと、ファイル1つが開けないだけでアプリ全体がサインアウトしてしまうため、ゲートウェイで `ValidationFailure` に変換する。
+
+キャッシュはポインタのblob SHAをキーに、**実体**を保存する。ポインタ自体は保存しない。
+
+**書き込みは未対応**。LFS管理下のファイルを通常のblobとして書き込むと、LFSを迂回して実体がリポジトリに残り続ける。そのため、書き込みが起きうる経路では事前に拒否する。
+
+- 別リポジトリへのコピー（FR-101）は、コピー先の `.gitattributes` を読み、対象なら `LfsUnsupportedFailure` で止める（`domain/services/git_attributes.dart` の `isLfsTracked`）。
+- ビューアでの編集はテキスト系のみで、PDFは編集できないため現状の経路では起きない。テキスト系をLFSにしているリポジトリを扱う場合は、保存側にも同じ判定が要る。
+
+`.gitattributes` の解釈は必要な範囲に絞っている。`*.pdf`、`dir/*.pdf`、`**/x`、先頭 `/` による固定に対応し、否定（`!`）とマクロは見ない。
+
 ### 2.2 条件付きリクエスト
 
 - ツリー・ref・リポジトリ一覧は `ETag` を保存し、`If-None-Match` を付けて送る。`304` はレート制限に数えられない。

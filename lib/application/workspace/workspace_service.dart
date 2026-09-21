@@ -1,3 +1,4 @@
+import 'package:github_api/github_api.dart' show LfsPointer;
 import 'dart:typed_data';
 
 import '../../domain/entities/entities.dart';
@@ -164,6 +165,42 @@ class WorkspaceService {
     return loadBlob(ws, path, entry.sha, size: entry.size);
   }
 
+  /// Fetches the real content when [bytes] is a Git LFS pointer (FR-102),
+  /// or null when it is already the content.
+  ///
+  /// The tree only knows the pointer's size, so the real size is checked here
+  /// against the same limit.
+  Future<Uint8List?> _resolveLfs(
+    Workspace ws,
+    String path,
+    Uint8List bytes,
+  ) async {
+    final pointer = LfsPointer.parse(bytes);
+    if (pointer == null) return null;
+    if (pointer.size > maxBlobBytes) {
+      throw ValidationFailure('File too large: $path');
+    }
+    return github.lfsObject(
+      ws.repo,
+      oid: pointer.oid,
+      size: pointer.size,
+      hashAlgo: pointer.hashAlgo,
+    );
+  }
+
+  FileContent _content(
+    String path,
+    Uint8List bytes,
+    String sha,
+    ContentSource source,
+  ) => FileContent(
+    path: path,
+    bytes: bytes,
+    kind: FileKindDetector.fromContent(path, bytes),
+    source: source,
+    blobSha: sha,
+  );
+
   /// Loads blob [sha] for [path] ignoring pending changes.
   Future<FileContent> loadBlob(
     Workspace ws,
@@ -178,9 +215,21 @@ class WorkspaceService {
     Uint8List? bytes = await blobs.read(sha);
     if (bytes == null) {
       bytes = await github.blob(ws.repo, sha);
+    } else {
+      // LFS に対応する前に取り込んだキャッシュには、実体ではなくポインタが
+      // 入っている。開くたびに壊れたままになるので、ここでも解決する。
+      final resolved = await _resolveLfs(ws, path, bytes);
+      if (resolved == null) return _content(path, bytes, sha, source);
+      bytes = resolved;
+      // 保存庫は同じSHAの ファイル があると書き込みを省く。ポインタを実体に
+      // 差し替える場面では一度消す必要がある。
+      await blobs.delete(sha);
       await blobs.write(sha, bytes, repoFullName: ws.repo.fullName);
-      source = ContentSource.remote;
+      return _content(path, bytes, sha, ContentSource.remote);
     }
+    bytes = await _resolveLfs(ws, path, bytes) ?? bytes;
+    await blobs.write(sha, bytes, repoFullName: ws.repo.fullName);
+    source = ContentSource.remote;
     return FileContent(
       path: path,
       bytes: bytes,

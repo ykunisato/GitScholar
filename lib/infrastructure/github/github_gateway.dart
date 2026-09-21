@@ -378,4 +378,29 @@ class GitHubGateway implements GitHubRepository {
     () async =>
         _reactions(await client.react(subjectId, kind.graphQlName, add: add)),
   );
+
+  @override
+  Future<Uint8List> lfsObject(
+    RepositoryRef repo, {
+    required String oid,
+    required int size,
+    String hashAlgo = 'sha256',
+  }) async {
+    try {
+      return await _get(
+        () => client.downloadLfsObject(
+          repo.owner,
+          repo.name,
+          LfsPointer(oid: oid, size: size, hashAlgo: hashAlgo),
+        ),
+      );
+    } on AuthFailure catch (e) {
+      // LFS サーバは別に認証する。そこで断られてもサインインは有効なので、
+      // 認証の失敗として扱うとファイル1つのためにサインアウトしてしまう。
+      throw ValidationFailure(
+        'Git LFS server refused the token: ${e.message}',
+        cause: e,
+      );
+    }
+  }
 }

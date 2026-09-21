@@ -87,6 +87,32 @@ void main() {
     );
   });
 
+  test('refuses to copy into a destination that uses Git LFS', () async {
+    // 通常の blob として書くと LFS を迂回し、実体がリポジトリに残り続ける。
+    env.github.seed({
+      '.gitattributes': '*.pdf filter=lfs diff=lfs merge=lfs -text\n',
+    }, on: mine);
+    await expectLater(
+      copier.copy(
+        source: await sourceFile(),
+        target: mine,
+        targetPath: 'papers/paper.pdf',
+      ),
+      throwsA(isA<LfsUnsupportedFailure>()),
+    );
+    expect(await env.db.pendingChangesFor(mine.fullName, 'main'), isEmpty);
+  });
+
+  test('a destination without LFS is unaffected', () async {
+    env.github.seed({'.gitattributes': '*.psd filter=lfs\n'}, on: mine);
+    final result = await copier.copy(
+      source: await sourceFile(),
+      target: mine,
+      targetPath: 'papers/paper.pdf',
+    );
+    expect(result.hasChange, isTrue);
+  });
+
   test('suggests the source path as the destination', () {
     expect(FileCopyService.suggestPath('papers/a.md'), 'papers/a.md');
   });

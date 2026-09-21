@@ -6,4 +6,5 @@ export 'src/client.dart';
 export 'src/device_flow.dart';
 export 'src/dto.dart';
 export 'src/exception.dart';
+export 'src/lfs.dart';
 export 'src/threads.dart';

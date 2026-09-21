@@ -32,6 +32,7 @@ String failureMessage(BuildContext context, Object error) {
     AuthFailure() => l.errorAuth,
     NotFoundFailure(:final message) => l.errorNotFound(message),
     ConflictFailure() => l.errorConflict,
+    LfsUnsupportedFailure() => l.copyLfsBlocked,
     ValidationFailure(:final message) => message,
     AiFailure(:final message) => l.errorAi(message),
     AppFailure(:final message) => message,

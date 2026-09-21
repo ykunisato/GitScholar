@@ -598,5 +598,6 @@
     }
   },
   "copyViewChanges": "変更を見る",
-  "copySameContent": "内容が同じため、変更はありません"
+  "copySameContent": "内容が同じため、変更はありません",
+  "copyLfsBlocked": "コピー先はこの種類のファイルを Git LFS で管理しています。アプリからは書き込めません"
 }

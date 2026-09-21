@@ -35,6 +35,13 @@ class SecureStorageFailure extends AppFailure {
   const SecureStorageFailure(super.message, {super.cause});
 }
 
+/// The destination stores this kind of file with Git LFS. Writing it as an
+/// ordinary blob would bypass LFS and leave the content in the repository
+/// forever (docs/04 §2.1b).
+class LfsUnsupportedFailure extends AppFailure {
+  const LfsUnsupportedFailure(super.message);
+}
+
 /// Rate limit exhausted.
 class RateLimitFailure extends AppFailure {
   const RateLimitFailure(super.message, {super.cause, this.resetAt});

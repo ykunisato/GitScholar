@@ -113,6 +113,17 @@ abstract class GitHubRepository {
     required bool add,
   });
 
+  /// Fetches content stored with Git LFS (FR-102).
+  ///
+  /// For an LFS-tracked file the Git blob holds only a pointer; the bytes
+  /// live on a separate LFS server.
+  Future<Uint8List> lfsObject(
+    RepositoryRef repo, {
+    required String oid,
+    required int size,
+    String hashAlgo = 'sha256',
+  });
+
   /// Remaining core rate limit, if known.
   int? get rateLimitRemaining;
 }

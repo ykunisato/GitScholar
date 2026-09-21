@@ -294,5 +294,6 @@
   "copyReplaceWarning": "A file with this name exists and will be replaced",
   "copyDone": "Copied to {repo}",
   "copyViewChanges": "View changes",
-  "copySameContent": "The content is identical, so there is nothing to commit"
+  "copySameContent": "The content is identical, so there is nothing to commit",
+  "copyLfsBlocked": "The destination stores this kind of file with Git LFS, which this app cannot write"
 }

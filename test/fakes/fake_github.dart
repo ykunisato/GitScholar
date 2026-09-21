@@ -386,4 +386,37 @@ class FakeGitHub implements GitHubRepository {
     (threadComments[threadKey(thread)] ??= []).add(c);
     return c;
   }
+
+  // ----------------------------------------------------------- Git LFS
+
+  /// oid ごとの実体。`seedLfs` で登録する。
+  final lfsObjects = <String, Uint8List>{};
+
+  /// Registers LFS content under the bare [oid] and returns the pointer file
+  /// that Git would hold, where the digest carries its `sha256:` prefix.
+  Uint8List seedLfs(String oid, String content) {
+    final bytes = Uint8List.fromList(utf8.encode(content));
+    lfsObjects[oid] = bytes;
+    return Uint8List.fromList(
+      utf8.encode(
+        'version https://git-lfs.github.com/spec/v1\n'
+        'oid sha256:$oid\n'
+        'size ${bytes.length}\n',
+      ),
+    );
+  }
+
+  @override
+  Future<Uint8List> lfsObject(
+    RepositoryRef r, {
+    required String oid,
+    required int size,
+    String hashAlgo = 'sha256',
+  }) async {
+    calls.add('lfs');
+    _maybeFail();
+    final bytes = lfsObjects[oid];
+    if (bytes == null) throw NotFoundFailure('no lfs object $oid');
+    return bytes;
+  }
 }

@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import 'dto.dart';
 import 'exception.dart';
+import 'lfs.dart';
 import 'threads.dart';
 
 /// Stores ETags and cached bodies for conditional requests.
@@ -572,6 +574,120 @@ class GitHubClient {
     );
     final payload = data[name] as Map<String, dynamic>?;
     return ReactionGroupDto.listFrom(payload?['reactionGroups']);
+  }
+
+  // ----------------------------------------------------------- Git LFS
+
+  /// Base of the Git LFS endpoints. LFS lives on github.com, not on the API
+  /// host.
+  final String lfsBaseUrl = 'https://github.com';
+
+  /// Downloads the real content behind an LFS [pointer].
+  ///
+  /// Files stored with Git LFS come back from the Git Data API as a small
+  /// pointer file; the bytes have to be fetched separately (docs/04 §2.4).
+  /// The content is checked against the pointer's size and sha256 so a stale
+  /// or truncated response is not cached as if it were the document.
+  Future<Uint8List> downloadLfsObject(
+    String owner,
+    String name,
+    LfsPointer pointer,
+  ) async {
+    final batch = await _lfsBatch(owner, name, pointer);
+    final objects = batch['objects'];
+    if (objects is! List || objects.isEmpty) {
+      throw const GitHubApiException(0, 'LFS batch returned no object');
+    }
+    final object = objects.first as Map<String, dynamic>;
+    final error = object['error'];
+    if (error is Map) {
+      throw GitHubApiException(
+        (error['code'] as num?)?.toInt() ?? 0,
+        '${error['message'] ?? 'LFS object unavailable'}',
+      );
+    }
+    final download =
+        (object['actions'] as Map<String, dynamic>?)?['download']
+            as Map<String, dynamic>?;
+    final href = download?['href'];
+    if (href is! String || href.isEmpty) {
+      throw const GitHubApiException(0, 'LFS object has no download link');
+    }
+    final headerMap = download?['header'];
+    final headers = <String, String>{
+      if (headerMap is Map)
+        for (final e in headerMap.entries) '${e.key}': '${e.value}',
+    };
+    final http.Response res;
+    try {
+      res = await _http.get(Uri.parse(href), headers: headers);
+    } on http.ClientException catch (e) {
+      throw GitHubApiException(0, e.message);
+    }
+    if (res.statusCode >= 400) {
+      throw GitHubApiException(res.statusCode, 'LFS download failed');
+    }
+    final bytes = res.bodyBytes;
+    if (bytes.length != pointer.size) {
+      throw GitHubApiException(
+        0,
+        'LFS size mismatch: got ${bytes.length}, expected ${pointer.size}',
+      );
+    }
+    if (pointer.hashAlgo == 'sha256' &&
+        '${sha256.convert(bytes)}' != pointer.oid) {
+      throw const GitHubApiException(0, 'LFS content does not match its oid');
+    }
+    return bytes;
+  }
+
+  /// Asks the LFS server where the object lives.
+  ///
+  /// GitHub accepts the token as HTTP Basic credentials; some setups want a
+  /// bearer token instead, so both are tried before giving up.
+  Future<Map<String, dynamic>> _lfsBatch(
+    String owner,
+    String name,
+    LfsPointer pointer,
+  ) async {
+    final uri = Uri.parse(
+      '$lfsBaseUrl/${_enc(owner)}/${_enc(name)}.git/info/lfs/objects/batch',
+    );
+    final body = jsonEncode({
+      'operation': 'download',
+      'transfers': ['basic'],
+      // ポインタの `sha256:` は付けない。付けるとサーバは
+      // 「Object does not exist on the server」を返す。
+      'objects': [
+        {'oid': pointer.oid, 'size': pointer.size},
+      ],
+      if (pointer.hashAlgo != 'sha256') 'hash_algo': pointer.hashAlgo,
+    });
+    final basic = base64Encode(utf8.encode('x-access-token:$token'));
+    for (final authorization in ['Basic $basic', 'Bearer $token']) {
+      final http.Response res;
+      try {
+        res = await _http.post(
+          uri,
+          headers: {
+            'Accept': 'application/vnd.git-lfs+json',
+            'Content-Type': 'application/vnd.git-lfs+json',
+            'Authorization': authorization,
+          },
+          body: body,
+        );
+      } on http.ClientException catch (e) {
+        throw GitHubApiException(0, e.message);
+      }
+      if (res.statusCode == 401 && authorization.startsWith('Basic')) {
+        continue; // Bearer で再試行する
+      }
+      if (res.statusCode >= 400) {
+        throw GitHubApiException(res.statusCode, 'LFS batch failed');
+      }
+      return _obj(res.body);
+    }
+    throw const GitHubApiException(401, 'LFS authentication failed');
   }
 
   /// `GET /rate_limit`.
