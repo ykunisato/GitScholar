@@ -13,10 +13,12 @@ AppFailure mapGitHubException(
   bool isRefUpdate = false,
 }) {
   if (e.statusCode == 0) {
-    if (e.errorCode != null) {
-      return AuthFailure(e.message, cause: e, code: e.errorCode);
+    // 時間切れは認証の失敗ではなく通信の失敗。利用者には「通信できません」と
+    // 出して、やり直せると分かるようにする。
+    if (e.errorCode == null || e.errorCode == 'timeout') {
+      return NetworkFailure(e.message, cause: e);
     }
-    return NetworkFailure(e.message, cause: e);
+    return AuthFailure(e.message, cause: e, code: e.errorCode);
   }
   if (e.isRateLimited) {
     return RateLimitFailure(e.message, cause: e, resetAt: e.rateLimitResetAt);

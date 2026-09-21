@@ -28,22 +28,59 @@ class AuthService {
 
   static const _userKey = 'github_user';
 
+  /// Key of the authentication event trail (docs/09 §1).
+  static const authLogKey = 'auth_log';
+
+  /// How many events are kept.
+  static const _authLogLimit = 30;
+
+  /// Appends an authentication event so that a sign-out happening hours later
+  /// can be explained without reproducing it. Logcat is useless here: the
+  /// buffer has rotated long before the user notices.
+  Future<void> recordEvent(String reason, {String? detail}) async {
+    try {
+      final existing = await db.getValue(authLogKey);
+      final entries = <Object?>[
+        if (existing is List) ...existing,
+        {
+          'at': DateTime.now().toUtc().toIso8601String(),
+          'reason': reason,
+          'detail': ?detail,
+        },
+      ];
+      await db.setValue(
+        authLogKey,
+        entries.length > _authLogLimit
+            ? entries.sublist(entries.length - _authLogLimit)
+            : entries,
+      );
+    } catch (_) {
+      // 記録は補助。失敗しても認証の本筋は止めない。
+    }
+  }
+
   /// Restores the session. Returns null when signed out. Uses the cached
   /// user when offline.
   Future<GitHubUser?> restore() async {
     final String? token;
     try {
       token = await secure.read(SecureStore.githubToken);
-    } on SecureStorageFailure {
+    } on SecureStorageFailure catch (e) {
       // 保存領域が読めないだけ。トークンは消さず、次回の起動に賭ける。
+      await recordEvent('restore_storage_failed', detail: e.message);
       return null;
     }
-    if (token == null) return null;
+    if (token == null) {
+      await recordEvent('restore_no_token_stored');
+      return null;
+    }
     try {
       final user = await gatewayFor(token).currentUser();
       await _cacheUser(user);
       return user;
-    } on AuthFailure {
+    } on AuthFailure catch (e) {
+      // GitHub がこのトークンを拒否した。ここでだけ削除してよい。
+      await recordEvent('restore_rejected_by_github', detail: e.message);
       await secure.delete(SecureStore.githubToken);
       return null;
     } on AppFailure {
@@ -168,6 +205,7 @@ class AuthService {
 
   Future<GitHubUser> _finishSignIn(String token) async {
     await secure.write(SecureStore.githubToken, token);
+    await recordEvent('signed_in');
     await clearPendingCode();
     final user = await gatewayFor(token).currentUser();
     await _cacheUser(user);

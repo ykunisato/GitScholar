@@ -7,6 +7,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../../application/editing/pdf_sidecar_service.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/failures.dart';
+import '../../../domain/services/char_rect_grouping.dart';
 import '../../agent/agent_controller.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
@@ -112,29 +113,14 @@ class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
     }
   }
 
-  /// Splits a selected range into one rectangle per line of text.
+  /// Splits a selected range into one rectangle per run of text. Grouping
+  /// handles vertical writing as well (docs/05 §1).
   List<HighlightRect> _lineRects(PdfPageTextRange range) {
     final chars = range.pageText.charRects;
-    final out = <HighlightRect>[];
-    PdfRect? current;
-    for (var i = range.start; i < range.end && i < chars.length; i++) {
-      final c = chars[i];
-      if (c.isEmpty) continue;
-      if (current == null) {
-        current = c;
-        continue;
-      }
-      final overlap =
-          math.min(current.top, c.top) - math.max(current.bottom, c.bottom);
-      if (overlap > math.min(current.height, c.height) * 0.4) {
-        current = current.merge(c);
-      } else {
-        out.add(_toHighlightRect(current));
-        current = c;
-      }
-    }
-    if (current != null) out.add(_toHighlightRect(current));
-    return out;
+    final end = math.min(range.end, chars.length);
+    return groupCharRects([
+      for (var i = range.start; i < end; i++) _toHighlightRect(chars[i]),
+    ]);
   }
 
   HighlightRect _toHighlightRect(PdfRect r) =>

@@ -46,6 +46,7 @@ class GitHubDeviceFlow {
     required this.clientId,
     http.Client? client,
     this.baseUrl = 'https://github.com',
+    this.timeout = const Duration(seconds: 20),
     Future<void> Function(Duration)? delay,
     DateTime Function()? now,
   }) : _http = client ?? http.Client(),
@@ -57,6 +58,12 @@ class GitHubDeviceFlow {
 
   /// github.com base URL.
   final String baseUrl;
+
+  /// How long a single request may take.
+  ///
+  /// Without it a stalled connection leaves the sign-in screen spinning with
+  /// no way out but to start over.
+  final Duration timeout;
 
   final http.Client _http;
   final Future<void> Function(Duration) _delay;
@@ -158,11 +165,15 @@ class GitHubDeviceFlow {
   /// The current polling interval is exposed for tests via [pollForToken].
   Future<http.Response> _post(String path, Map<String, String> body) async {
     try {
-      return await _http.post(
-        Uri.parse('$baseUrl$path'),
-        headers: {'Accept': 'application/json'},
-        body: body,
-      );
+      return await _http
+          .post(
+            Uri.parse('$baseUrl$path'),
+            headers: {'Accept': 'application/json'},
+            body: body,
+          )
+          .timeout(timeout);
+    } on TimeoutException {
+      throw const GitHubApiException(0, 'timeout', errorCode: 'timeout');
     } on http.ClientException catch (e) {
       throw GitHubApiException(0, e.message);
     }

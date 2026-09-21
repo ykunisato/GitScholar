@@ -353,7 +353,13 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// failure raised because the token was missing in memory (a failed read,
   /// for instance) must not delete a token that is still valid on disk.
   Future<void> onAuthFailure() async {
-    if (ref.read(githubTokenProvider) != null) {
+    final hadToken = ref.read(githubTokenProvider) != null;
+    await ref
+        .read(authServiceProvider)
+        .recordEvent(
+          hadToken ? 'rejected_with_token' : 'failure_without_token',
+        );
+    if (hadToken) {
       await ref.read(secureStoreProvider).delete(SecureStore.githubToken);
     }
     ref.read(githubTokenProvider.notifier).set(null);

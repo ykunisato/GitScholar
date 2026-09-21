@@ -382,6 +382,32 @@ void main() {
       expect(r.verificationUri.host, 'github.com');
     });
 
+    test('requestCode times out instead of hanging', () async {
+      // 制限時間が無いと、サインイン画面が回り続けたままになる。
+
+      final flow = GitHubDeviceFlow(
+        clientId: 'cid',
+
+        timeout: const Duration(milliseconds: 50),
+
+        client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(seconds: 5));
+
+          return json({'device_code': 'never'});
+        }),
+      );
+
+      await expectLater(
+        flow.requestCode(),
+
+        throwsA(
+          isA<GitHubApiException>()
+              .having((e) => e.errorCode, 'errorCode', 'timeout')
+              .having((e) => e.statusCode, 'statusCode', 0),
+        ),
+      );
+    });
+
     test('requestCode error', () async {
       final flow = GitHubDeviceFlow(
         clientId: 'cid',

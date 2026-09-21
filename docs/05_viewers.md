@@ -18,7 +18,8 @@
 | ページ移動 | ページ番号入力、スライダー。現在ページを `OpenFile.pdfPage` に反映 |
 | 検索 | `PdfTextSearcher` でインクリメンタル検索、ヒット件数と前後移動、ハイライト |
 | テキスト選択 | `pdfrx` の選択機能。選択テキストを `selectionProvider` に流す。選択メニューは `buildContextMenu` で自前のものに差し替え、「コピー」「AIに聞く」「マーカー4色」を出す。pdfrx 既定の `AdaptiveTextSelectionToolbar` はビューア内部のStackで `MaterialLocalizations` を解決できず例外になるため使わない |
-| マーカー | 選択範囲に4色のハイライトを付ける（FR-90）。行ごとの矩形をページ座標で `<pdf名>.annotations.json` に保存し、`pagePaintCallbacks` で描画。一覧から該当ページへ移動・削除 |
+| マーカー | 選択範囲に4色のハイライトを付ける（FR-90）。文字ごとの矩形を1本の帯にまとめ、ページ座標で `<pdf名>.annotations.json` に保存し、`pagePaintCallbacks` で描画。一覧から該当ページへ移動・削除 |
+| マーカーの縦書き対応 | まとめ方は `domain/services/char_rect_grouping.dart`。横書きと縦書きの両方を扱う。向きはPDFの `PdfTextDirection` ではなく**文字の位置関係**から判定する（日本語PDFは方向が未設定・誤設定のことが多く、選択範囲が向きの異なる部分をまたぐこともあるため）。帯は一度伸び始めた向きにだけ延長する。そうしないと、横書きの改行と縦書きの次の文字が区別できない |
 | メモ | ビューア下部の入力バーに書いた内容を `<pdf名>.md` の末尾に追記する（FR-96）。ファイルが無ければ見出しとPDFへのリンクを付けて新規作成。選択範囲があれば引用として添える |
 | 目次 | アウトラインがあればドロワーで表示 |
 | 位置の記憶 | ファイル（sha）ごとに最後のページを `key_value` に保存 |
