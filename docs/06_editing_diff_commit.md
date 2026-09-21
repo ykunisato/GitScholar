@@ -28,8 +28,11 @@
 - 新規作成: ファイルツリーの「+」→ パス入力 → `ChangeKind.create` の空ファイル。
 - 削除: `ChangeKind.delete`。ツリーでは取り消し線表示。
 - リネーム: `ChangeKind.rename`（`oldPath` → `path`）。内容変更を伴う場合も1つのPendingChangeで表す。
+- 移動（FR-49）: 同じリポジトリ内でフォルダを変えるだけなので、名前を保ったままのリネームとして扱う。`EditingService.moveFile` が移動先フォルダと元の名前からパスを組み立て、`renameFile` に渡す。
 
 別リポジトリへのコピー（FR-101）も同じ仕組みに乗る。コピー先のワークスペースを読み（キャッシュがあれば使う）、`EditingService.saveBytes` で保留中の変更を作るだけで、GitHubへの書き込みは行わない。コピー元には何も起きないため、読み取り専用のリポジトリからでも持ち出せる。書き込み権限が無いリポジトリを選んだ場合は、コミット時にAPIのエラーとして表れる。
+
+PDFを移動・リネームするときは、マーカーとメモも一緒に動かす（`domain/services/companion_files.dart`）。これらはPDFの名前から導かれるファイルなので、PDFだけ動かすと元の場所に取り残され、どのPDFのものか分からなくなる。移動先に同名のメモがある場合は、PDF本体を含めて何も動かさずに `ValidationFailure` とする。途中まで動いた状態を残さないため、衝突の判定は動かす前に行う。
 
 PDFのマーカー（`<pdf名>.annotations.json`）とメモ（`<pdf名>.md`）も専用の保存先を持たず、通常のファイル編集として扱う。保存すると `PendingChange` になり、変更一覧に並び、コミットは他の編集と同じ操作で行う（ADR-0008, ADR-0011）。
 
@@ -88,6 +91,8 @@ DiffStats stats(List<DiffLine> lines);                          // added, delete
 6. 残った PendingChange（対象外）は baseCommitSha を newCommitSha に付け替える
 7. UIに「コミットしました <short sha>」とGitHubで開くリンク
 ```
+
+内容が変わらないリネーム・移動（`contentSha == baseBlobSha`）では blob を作り直さず、既にGitにあるblobのSHAを新しいパスに割り当てる。実体を送らないので、Git LFS のポインタがそのまま残り（FR-102）、大きなファイルでも通信が発生しない。同じ理由で `EditingService.renameFile` は中身を取りに行かない。未コミットの状態でそのファイルを開いたときは、元のblobを読んで表示する。
 
 - オフライン時は `NetworkFailure` を表示し、変更は保持する（NFR-20）。
 - 途中失敗（blob作成後にref更新で失敗など）はGitHub上にゴミオブジェクトが残るが害はない。ローカル状態は変更しない。

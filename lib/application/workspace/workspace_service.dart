@@ -143,6 +143,23 @@ class WorkspaceService {
           throw NotFoundFailure('Deleted: $path');
         }
         final bytes = await blobs.read(c.contentSha!);
+        if (bytes == null && c.contentSha == c.baseBlobSha) {
+          // 内容を変えない移動・リネームは実体を持たない。元のblobを読めば
+          // よく、LFSならそこで実体が解決される（FR-49）。
+          final loaded = await loadBlob(
+            ws,
+            path,
+            c.contentSha!,
+            size: ws.entry(c.oldPath ?? path)?.size,
+          );
+          return FileContent(
+            path: path,
+            bytes: loaded.bytes,
+            kind: loaded.kind,
+            source: ContentSource.pending,
+            blobSha: c.contentSha,
+          );
+        }
         if (bytes == null) {
           throw ValidationFailure('Pending content missing for $path');
         }

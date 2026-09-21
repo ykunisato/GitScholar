@@ -13,6 +13,7 @@ import '../agent/agent_controller.dart';
 import '../core/providers.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
+import '../editing/move_file_sheet.dart';
 
 class ExpandedDirsController extends Notifier<Set<String>> {
   String? _key;
@@ -172,6 +173,11 @@ class _FilesPaneState extends ConsumerState<FilesPane> {
                 onTap: () => Navigator.pop(ctx, 'rename'),
               ),
               ListTile(
+                leading: const Icon(Icons.drive_file_move_outline),
+                title: Text(l.moveFile),
+                onTap: () => Navigator.pop(ctx, 'move'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.delete_outline),
                 title: Text(l.delete),
                 onTap: () => Navigator.pop(ctx, 'delete'),
@@ -212,6 +218,8 @@ class _FilesPaneState extends ConsumerState<FilesPane> {
             await editing.renameFile(ws, node.path, to);
             ref.read(openFilesProvider.notifier).rename(node.path, to.trim());
           }
+        case 'move':
+          await showMoveFileSheet(context, ref, node.path);
         case 'delete':
           final ok = await confirmDialog(
             context,

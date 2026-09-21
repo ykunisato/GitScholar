@@ -8,6 +8,7 @@ import '../agent/agent_controller.dart';
 import '../core/providers.dart';
 import '../core/widgets.dart';
 import '../editing/copy_to_repo_sheet.dart';
+import '../editing/move_file_sheet.dart';
 import '../viewers/viewer_dispatcher.dart';
 
 /// Tabs, per-file toolbar and viewer (docs/08_ui_spec.md §3.4).
@@ -58,57 +59,76 @@ class ViewerPane extends ConsumerWidget {
         const Divider(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              Icon(fileIcon(kind), size: 16),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  active,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              if (editable)
-                IconButton(
-                  key: const Key('editToggle'),
-                  tooltip: editing ? l.viewMode : l.editMode,
-                  isSelected: editing,
-                  icon: const Icon(Icons.edit_outlined),
-                  selectedIcon: const Icon(Icons.edit),
-                  onPressed: () => ref
-                      .read(shellProvider.notifier)
-                      .setEditing(active, !editing),
-                ),
-              IconButton(
-                key: const Key('copyToRepo'),
-                tooltip: l.copyToRepo,
-                icon: const Icon(Icons.drive_file_move_outline),
-                onPressed: content == null
-                    ? null
-                    : () => showCopyToRepoSheet(context, ref, content),
-              ),
-              IconButton(
-                tooltip: l.askAiAboutFile,
-                icon: const Icon(Icons.auto_awesome_outlined),
-                onPressed: () {
-                  ref
-                      .read(agentControllerProvider.notifier)
-                      .setAttachOpenFile(true);
-                  ref.read(shellProvider.notifier).showPane(PhonePane.agent);
-                },
-              ),
-              IconButton(
-                tooltip: l.openOnGitHub,
-                icon: const Icon(Icons.open_in_browser),
-                onPressed: () => launchUrl(
-                  Uri.parse(
-                    'https://github.com/${ws.repo.fullName}/blob/${Uri.encodeComponent(ws.branch)}/$active',
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              children: [
+                Icon(fileIcon(kind), size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    active,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  mode: LaunchMode.externalApplication,
                 ),
-              ),
-            ],
+                if (editable)
+                  IconButton(
+                    key: const Key('editToggle'),
+                    tooltip: editing ? l.viewMode : l.editMode,
+                    isSelected: editing,
+                    icon: const Icon(Icons.edit_outlined),
+                    selectedIcon: const Icon(Icons.edit),
+                    onPressed: () => ref
+                        .read(shellProvider.notifier)
+                        .setEditing(active, !editing),
+                  ),
+                _FileActions(
+                  // ファイル名にも場所を残す。足りなければメニューにたたむ。
+                  compact:
+                      constraints.maxWidth < (editable ? 48 : 0) + 4 * 48 + 96,
+                  actions: [
+                    _FileAction(
+                      key: const Key('copyToRepo'),
+                      icon: Icons.copy_all_outlined,
+                      label: l.copyToRepo,
+                      onPressed: content == null
+                          ? null
+                          : () => showCopyToRepoSheet(context, ref, content),
+                    ),
+                    _FileAction(
+                      key: const Key('moveFile'),
+                      icon: Icons.drive_file_move_outline,
+                      label: l.moveFile,
+                      onPressed: () => showMoveFileSheet(context, ref, active),
+                    ),
+                    _FileAction(
+                      key: const Key('askAiAboutFile'),
+                      icon: Icons.auto_awesome_outlined,
+                      label: l.askAiAboutFile,
+                      onPressed: () {
+                        ref
+                            .read(agentControllerProvider.notifier)
+                            .setAttachOpenFile(true);
+                        ref
+                            .read(shellProvider.notifier)
+                            .showPane(PhonePane.agent);
+                      },
+                    ),
+                    _FileAction(
+                      key: const Key('openOnGitHub'),
+                      icon: Icons.open_in_browser,
+                      label: l.openOnGitHub,
+                      onPressed: () => launchUrl(
+                        Uri.parse(
+                          'https://github.com/${ws.repo.fullName}/blob/${Uri.encodeComponent(ws.branch)}/$active',
+                        ),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         if (status.changedPaths.contains(active))
@@ -127,6 +147,71 @@ class ViewerPane extends ConsumerWidget {
         Expanded(
           child: ViewerDispatcher(key: ValueKey(active), path: active),
         ),
+      ],
+    );
+  }
+}
+
+/// One action of the file toolbar.
+class _FileAction {
+  const _FileAction({
+    required this.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Key key;
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+}
+
+/// Toolbar actions, as buttons where there is room and as an overflow menu
+/// where there is not.
+///
+/// The viewer can be squeezed to a couple of hundred pixels by widening the
+/// side panes, and a row of buttons simply overflows there.
+class _FileActions extends StatelessWidget {
+  const _FileActions({required this.actions, required this.compact});
+
+  final List<_FileAction> actions;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!compact) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final a in actions)
+            IconButton(
+              key: a.key,
+              tooltip: a.label,
+              icon: Icon(a.icon),
+              onPressed: a.onPressed,
+            ),
+        ],
+      );
+    }
+    return PopupMenuButton<_FileAction>(
+      key: const Key('fileActionsMenu'),
+      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      onSelected: (a) => a.onPressed?.call(),
+      itemBuilder: (context) => [
+        for (final a in actions)
+          PopupMenuItem(
+            key: a.key,
+            value: a,
+            enabled: a.onPressed != null,
+            child: Row(
+              children: [
+                Icon(a.icon, size: 20),
+                const SizedBox(width: 12),
+                Flexible(child: Text(a.label)),
+              ],
+            ),
+          ),
       ],
     );
   }

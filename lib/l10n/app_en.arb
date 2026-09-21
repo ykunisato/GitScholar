@@ -295,5 +295,12 @@
   "copyDone": "Copied to {repo}",
   "copyViewChanges": "View changes",
   "copySameContent": "The content is identical, so there is nothing to commit",
-  "copyLfsBlocked": "The destination stores this kind of file with Git LFS, which this app cannot write"
+  "copyLfsBlocked": "The destination stores this kind of file with Git LFS, which this app cannot write",
+  "moveFile": "Move to another folder",
+  "moveDestination": "Destination folder",
+  "repositoryRoot": "Repository root",
+  "newFolder": "New folder",
+  "currentFolder": "Current folder",
+  "moveDone": "Moved to {path}",
+  "moveCompanionsNote": "The PDF's highlights and notes move with it"
 }

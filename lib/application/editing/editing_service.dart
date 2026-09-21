@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/entities.dart';
 import '../../domain/failures.dart';
+import '../../domain/services/companion_files.dart';
 import '../../domain/services/path_utils.dart';
 import '../../infrastructure/local/app_database.dart';
 import '../../infrastructure/local/blob_store.dart';
@@ -187,7 +188,20 @@ class EditingService {
     return change;
   }
 
+  /// Moves [rawPath] into the directory [rawDir], keeping its name (FR-49).
+  ///
+  /// An empty [rawDir] means the root of the repository.
+  Future<PendingChange> moveFile(Workspace ws, String rawPath, String rawDir) {
+    final path = normalizePath(rawPath);
+    final name = path.split('/').last;
+    final dir = rawDir.trim().isEmpty ? '' : normalizePath(rawDir);
+    return renameFile(ws, path, dir.isEmpty ? name : '$dir/$name');
+  }
+
   /// Renames [rawFrom] to [rawTo], keeping content changes.
+  ///
+  /// A PDF takes its highlights and notes with it: renaming only the PDF
+  /// would leave them behind under the old name.
   Future<PendingChange> renameFile(
     Workspace ws,
     String rawFrom,
@@ -195,6 +209,37 @@ class EditingService {
   ) async {
     final from = normalizePath(rawFrom);
     final to = normalizePath(rawTo);
+    final companions = await _companionMoves(ws, from, to);
+    final change = await _rename(ws, from, to);
+    for (final move in companions) {
+      await _rename(ws, move.key, move.value);
+    }
+    return change;
+  }
+
+  /// The companion files of [from] that exist and where they are going.
+  ///
+  /// Conflicts are found before anything moves, so a blocked companion does
+  /// not leave the file half moved.
+  Future<List<MapEntry<String, String>>> _companionMoves(
+    Workspace ws,
+    String from,
+    String to,
+  ) async {
+    final sources = companionPathsFor(from);
+    final targets = companionPathsFor(to);
+    final moves = <MapEntry<String, String>>[];
+    for (var i = 0; i < sources.length && i < targets.length; i++) {
+      if (sources[i] == targets[i] || !await exists(ws, sources[i])) continue;
+      if (await exists(ws, targets[i])) {
+        throw ValidationFailure('Already exists: ${targets[i]}');
+      }
+      moves.add(MapEntry(sources[i], targets[i]));
+    }
+    return moves;
+  }
+
+  Future<PendingChange> _rename(Workspace ws, String from, String to) async {
     if (from == to) throw const ValidationFailure('Same path');
     if (await exists(ws, to)) throw ValidationFailure('Already exists: $to');
     final now = _clock();
@@ -221,8 +266,9 @@ class EditingService {
     }
     final entry = ws.entry(from);
     if (entry == null) throw NotFoundFailure('Not found: $from');
-    // Commit needs the bytes to create the blob, so make sure they are cached.
-    await workspaces.loadBlob(ws, from, entry.sha, size: entry.size);
+    // The bytes are not needed: the content does not change, so the commit
+    // points the new path at the blob that is already in Git. Fetching them
+    // would mean downloading the whole file just to move it.
     final change = PendingChange(
       id: _newId(),
       repoFullName: ws.repo.fullName,

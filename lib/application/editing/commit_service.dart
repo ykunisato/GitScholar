@@ -135,6 +135,15 @@ class CommitService {
         switch (c.kind) {
           case ChangeKind.delete:
             items.add(TreeChange(c.path, null));
+          case ChangeKind.rename
+              when c.contentSha != null && c.contentSha == c.baseBlobSha:
+            // 内容が変わらない移動・リネームは、既にGitにあるblobをそのまま
+            // 指せばよい。実体を送り直さないので、Git LFS のポインタが
+            // 実体に置き換わってしまうこともない（FR-49, FR-102）。
+            final size = ws.entry(c.oldPath!)?.size;
+            if (size != null) sizes[c.path] = size;
+            items.add(TreeChange(c.oldPath!, null));
+            items.add(TreeChange(c.path, c.contentSha!));
           case ChangeKind.modify:
           case ChangeKind.create:
           case ChangeKind.rename:

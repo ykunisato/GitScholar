@@ -22,6 +22,7 @@
 | FR-62〜FR-64 AI提供元の追加 | 実装済み | `packages/scholar_agent/lib/src/{llm_client,openai_client}.dart` | OpenAI互換を1層で吸収（ADR-0010） |
 | FR-90, FR-96 PDFのマーカーとメモ | 実装済み | `lib/domain/entities/annotation.dart`, `lib/application/editing/pdf_sidecar_service.dart`, `lib/presentation/viewers/pdf` | サイドカーJSONと同名Markdown（ADR-0008, ADR-0011）。選択メニューは自前実装。実機でのみ検証可能 |
 | T-074 FR-97〜FR-99 Discussion / Issues | 実装済み | `packages/github_api`（`threads.dart`, GraphQL）, `lib/application/threads`, `lib/presentation/threads` | 閲覧・コメント・リアクション（ADR-0012） |
+| FR-49 フォルダ間の移動 | 実装済み | `lib/application/editing/editing_service.dart`, `lib/domain/services/companion_files.dart`, `lib/presentation/editing/move_file_sheet.dart` | 内容の変わらないリネームとして扱い、コミットでは既存blobを指す。PDFのマーカーとメモも一緒に移動 |
 | Phase 4 の残り（T-061〜T-064） | 未着手 | | 端末内全文検索、`metadata.yaml`、BibTeX、PDF索引 |
 | Phase 5 の残り（T-070〜T-073） | 未着手 | | PR一覧・作成・レビューコメント |
 

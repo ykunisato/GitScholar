@@ -192,7 +192,8 @@ void main() {
       final keep = await env.editing.createFile(ws, 'later.md', b('later'));
       env.github.calls.clear();
       final out = await env.commits.commit(ws, ids, message: 'Big change');
-      expect(env.github.calls.where((c) => c == 'createBlob'), hasLength(3));
+      // 内容が変わる2件だけblobを作る。リネームは既存のblobを指すだけ。
+      expect(env.github.calls.where((c) => c == 'createBlob'), hasLength(2));
       expect(
         env.github.calls,
         containsAllInOrder(['createTree', 'createCommit', 'updateRef']),

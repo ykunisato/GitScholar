@@ -599,5 +599,19 @@
   },
   "copyViewChanges": "変更を見る",
   "copySameContent": "内容が同じため、変更はありません",
-  "copyLfsBlocked": "コピー先はこの種類のファイルを Git LFS で管理しています。アプリからは書き込めません"
+  "copyLfsBlocked": "コピー先はこの種類のファイルを Git LFS で管理しています。アプリからは書き込めません",
+  "moveFile": "フォルダを移動",
+  "moveDestination": "移動先のフォルダ",
+  "repositoryRoot": "リポジトリ直下",
+  "newFolder": "新しいフォルダ",
+  "currentFolder": "現在のフォルダ",
+  "moveDone": "{path} に移動しました",
+  "@moveDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "moveCompanionsNote": "PDFのマーカーとメモも一緒に移動します"
 }

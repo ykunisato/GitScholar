@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/entities.dart';
+import '../../domain/services/companion_files.dart';
 import '../../domain/services/path_utils.dart';
 import '../workspace/workspace_service.dart';
 import 'editing_service.dart';
@@ -30,17 +31,14 @@ class PdfSidecarService {
   final String Function() _newId;
 
   /// `papers/foo.pdf` becomes `papers/foo.annotations.json`.
+  ///
+  /// The naming lives in `domain/services/companion_files.dart` because a
+  /// move has to know about these files too (FR-49).
   static String annotationsPathFor(String pdfPath) =>
-      '${_stem(pdfPath)}.annotations.json';
+      pdfAnnotationsPath(pdfPath);
 
   /// `papers/foo.pdf` becomes `papers/foo.md`.
-  static String notesPathFor(String pdfPath) => '${_stem(pdfPath)}.md';
-
-  static String _stem(String pdfPath) {
-    final p = normalizePath(pdfPath);
-    final dot = p.lastIndexOf('.');
-    return dot > p.lastIndexOf('/') ? p.substring(0, dot) : p;
-  }
+  static String notesPathFor(String pdfPath) => pdfNotesPath(pdfPath);
 
   /// Reads the sidecar file; missing or malformed files read as empty.
   Future<PdfAnnotations> load(Workspace ws, String pdfPath) async =>
