@@ -613,5 +613,9 @@
       }
     }
   },
-  "moveCompanionsNote": "PDFのマーカーとメモも一緒に移動します"
+  "moveCompanionsNote": "PDFのマーカーとメモも一緒に移動します",
+  "authLog": "サインインの記録",
+  "authLogHelp": "サインアウトの原因を調べるための記録です。トークンそのものは含みません",
+  "authLogEmpty": "記録はまだありません",
+  "authLogCopy": "記録をコピー"
 }

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:scholar_agent/scholar_agent.dart';
 
+import '../../application/auth/auth_service.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/failures.dart';
 import '../../infrastructure/execution/jupyter_client.dart';
 import '../../infrastructure/local/secure_store.dart';
 import '../core/providers.dart';
+import '../core/theme.dart';
 import '../core/widgets.dart';
 
 /// Settings (docs/08_ui_spec.md §3.7).
@@ -189,6 +192,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     onPressed: user == null ? null : () => _signOut(context),
                     child: Text(l.signOut),
                   ),
+                ),
+                ListTile(
+                  key: const Key('authLog'),
+                  leading: const Icon(Icons.history),
+                  title: Text(l.authLog),
+                  subtitle: Text(l.authLogHelp),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showAuthLog(context),
                 ),
                 _Section(l.aiSection),
                 ListTile(
@@ -508,6 +519,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
               ],
             ),
+    );
+  }
+
+  /// Shows the authentication event trail (docs/09 §1).
+  ///
+  /// Without a cable there is no other way to see why a device signed itself
+  /// out hours ago.
+  Future<void> _showAuthLog(BuildContext context) async {
+    final l = context.l10n;
+    final raw = await ref
+        .read(databaseProvider)
+        .getValue(AuthService.authLogKey);
+    final lines = [
+      if (raw is List)
+        for (final e in raw.reversed)
+          if (e is Map)
+            '${e['at']}  ${e['reason']}'
+                '${e['detail'] == null ? '' : '  ${e['detail']}'}',
+    ];
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.authLog),
+        content: SizedBox(
+          width: 520,
+          child: lines.isEmpty
+              ? Text(l.authLogEmpty)
+              : SingleChildScrollView(
+                  child: SelectableText(
+                    lines.join('\n'),
+                    style: monoStyle(ctx, size: 12),
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: lines.isEmpty
+                ? null
+                : () =>
+                      Clipboard.setData(ClipboardData(text: lines.join('\n'))),
+            child: Text(l.authLogCopy),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.ok)),
+        ],
+      ),
     );
   }
 

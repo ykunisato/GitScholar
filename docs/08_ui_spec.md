@@ -140,7 +140,7 @@ Discussion と Issues の一覧。上部に `SegmentedButton` で [Discussion] [
 
 | セクション | 項目 |
 |---|---|
-| アカウント | GitHubユーザー、ログアウト、レート制限残量 |
+| アカウント | GitHubユーザー、ログアウト、レート制限残量、サインインの記録（`auth_log` の閲覧とコピー。04 §1.3b） |
 | AI | 提供元（Anthropic / OpenAI / OpenRouter / OpenAI互換）、接続先URL（OpenRouter と自前サーバのみ）、提供元ごとのAPIキー（マスク表示、接続テスト）、モデル（Anthropic は一覧から選択、それ以外はモデルIDを入力）、effort と思考要約の表示（Anthropic のみ）、コードの自動実行、会話本文をログに出す（デバッグ） |
 | 実行環境（Phase 3） | Jupyter URL、トークン、接続テスト、既定カーネル |
 | キャッシュ | 使用量、上限、リポジトリ別削除、すべて削除 |
