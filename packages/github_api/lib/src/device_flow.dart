@@ -11,13 +11,64 @@ sealed class DevicePollResult {
   const DevicePollResult();
 }
 
-/// The user authorised the device.
-class DevicePollToken extends DevicePollResult {
-  /// Creates a successful poll result.
-  const DevicePollToken(this.token);
+/// What GitHub hands back when a sign-in succeeds.
+///
+/// An OAuth App token normally has no expiry, but a GitHub App token, and an
+/// OAuth App token when the app opts into expiring tokens, lives for a few
+/// hours and comes with a refresh token. Dropping those fields means the user
+/// is signed out when the token dies (docs/04 §1.3).
+class GitHubCredentials {
+  /// Creates a set of credentials.
+  const GitHubCredentials({
+    required this.token,
+    this.expiresIn,
+    this.refreshToken,
+    this.refreshTokenExpiresIn,
+  });
+
+  /// Reads the token response. Returns null when it carries no token.
+  static GitHubCredentials? fromJson(Map<String, dynamic> j) {
+    final token = j['access_token'];
+    if (token is! String || token.isEmpty) return null;
+    final refresh = j['refresh_token'];
+    return GitHubCredentials(
+      token: token,
+      expiresIn: (j['expires_in'] as num?)?.toInt(),
+      refreshToken: refresh is String && refresh.isNotEmpty ? refresh : null,
+      refreshTokenExpiresIn: (j['refresh_token_expires_in'] as num?)?.toInt(),
+    );
+  }
 
   /// The access token.
   final String token;
+
+  /// Seconds the access token is valid for, or null when it does not expire.
+  final int? expiresIn;
+
+  /// Token that buys a new access token, when there is one.
+  final String? refreshToken;
+
+  /// Seconds the refresh token is valid for.
+  final int? refreshTokenExpiresIn;
+
+  /// When the access token dies, counted from [from].
+  DateTime? expiresAt(DateTime from) =>
+      expiresIn == null ? null : from.add(Duration(seconds: expiresIn!));
+
+  /// Whether GitHub said this token expires.
+  bool get expires => expiresIn != null;
+}
+
+/// The user authorised the device.
+class DevicePollToken extends DevicePollResult {
+  /// Creates a successful poll result.
+  const DevicePollToken(this.credentials);
+
+  /// Access token and, when the token expires, how to renew it.
+  final GitHubCredentials credentials;
+
+  /// The access token.
+  String get token => credentials.token;
 }
 
 /// The user has not authorised yet. [interval] is the wait before the next
@@ -102,8 +153,8 @@ class GitHubDeviceFlow {
       'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
     });
     final j = _decode(res);
-    final token = j['access_token'];
-    if (token is String && token.isNotEmpty) return DevicePollToken(token);
+    final credentials = GitHubCredentials.fromJson(j);
+    if (credentials != null) return DevicePollToken(credentials);
     final current = interval ?? code.interval;
     switch (j['error']) {
       case 'authorization_pending':
@@ -125,7 +176,7 @@ class GitHubDeviceFlow {
   ///
   /// Completing [cancel] aborts with a `cancelled` [GitHubApiException].
   /// With [immediate] the first poll happens without waiting.
-  Future<String> pollForToken(
+  Future<GitHubCredentials> pollForToken(
     DeviceCodeResponse code, {
     Future<void>? cancel,
     bool immediate = false,
@@ -152,14 +203,36 @@ class GitHubDeviceFlow {
       }
       final result = await pollOnce(code, interval: interval);
       switch (result) {
-        case DevicePollToken(:final token):
-          return token;
+        case DevicePollToken(:final credentials):
+          return credentials;
         case DevicePollPending(interval: final next):
           interval = next;
         case DevicePollFailed(:final error):
           throw error;
       }
     }
+  }
+
+  /// Exchanges a refresh token for a new access token (docs/04 §1.3).
+  ///
+  /// GitHub answers with `error: bad_refresh_token` once the refresh token
+  /// itself has expired, which is a real sign-out.
+  Future<GitHubCredentials> refresh(String refreshToken) async {
+    final res = await _post('/login/oauth/access_token', {
+      'client_id': clientId,
+      'grant_type': 'refresh_token',
+      'refresh_token': refreshToken,
+    });
+    final j = _decode(res);
+    final credentials = GitHubCredentials.fromJson(j);
+    if (credentials == null) {
+      throw GitHubApiException(
+        res.statusCode,
+        '${j['error_description'] ?? j['error'] ?? 'Refresh failed'}',
+        errorCode: '${j['error'] ?? 'refresh_failed'}',
+      );
+    }
+    return credentials;
   }
 
   /// The current polling interval is exposed for tests via [pollForToken].

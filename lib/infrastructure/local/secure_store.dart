@@ -7,6 +7,11 @@ import '../../domain/failures.dart';
 /// written anywhere else.
 abstract class SecureStore {
   static const githubToken = 'github_access_token';
+
+  /// Refresh token, stored only when GitHub issues an expiring access token
+  /// (docs/04 §1.3). Without it an expiring token means a sign-out every few
+  /// hours.
+  static const githubRefreshToken = 'github_refresh_token';
   static const anthropicKey = 'anthropic_api_key';
 
   /// Key of the API key for [provider] (ADR-0010).

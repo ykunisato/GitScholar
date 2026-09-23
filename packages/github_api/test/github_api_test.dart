@@ -445,7 +445,7 @@ void main() {
           return json(responses.removeAt(0));
         }),
       );
-      expect(await flow.pollForToken(code), 'gho_x');
+      expect((await flow.pollForToken(code)).token, 'gho_x');
       expect(delays, [5, 5, 10]);
     });
 
@@ -508,7 +508,7 @@ void main() {
         delay: (d) async => delays.add(d.inSeconds),
         client: MockClient((_) async => json({'access_token': 'gho_now'})),
       );
-      expect(await flow.pollForToken(code, immediate: true), 'gho_now');
+      expect((await flow.pollForToken(code, immediate: true)).token, 'gho_now');
       expect(delays, isEmpty, reason: 'the app polls at once when it resumes');
     });
 
@@ -527,6 +527,87 @@ void main() {
             (e) => e.errorCode,
             'code',
             'cancelled',
+          ),
+        ),
+      );
+    });
+
+    test('keeps the expiry and refresh token when GitHub sends them', () async {
+      final flow = GitHubDeviceFlow(
+        clientId: 'cid',
+        delay: (_) async {},
+        client: MockClient(
+          (_) async => json({
+            'access_token': 'ghu_x',
+            'expires_in': 28800,
+            'refresh_token': 'ghr_y',
+            'refresh_token_expires_in': 15811200,
+          }),
+        ),
+      );
+      final c = await flow.pollForToken(
+        DeviceCodeResponse(
+          deviceCode: 'd',
+          userCode: 'U',
+          verificationUri: Uri.parse('https://github.com/login/device'),
+          expiresIn: 900,
+          interval: 5,
+        ),
+        immediate: true,
+      );
+      expect(c.token, 'ghu_x');
+      expect(c.expires, isTrue);
+      expect(c.refreshToken, 'ghr_y');
+      expect(
+        c.expiresAt(DateTime.utc(2026, 9, 22, 8)),
+        DateTime.utc(2026, 9, 22, 16),
+      );
+    });
+
+    test('a token with no expiry has nothing to refresh', () async {
+      final c = GitHubCredentials.fromJson({'access_token': 'gho_x'})!;
+      expect(c.expires, isFalse);
+      expect(c.refreshToken, isNull);
+      expect(c.expiresAt(DateTime.utc(2026)), isNull);
+    });
+
+    test('refresh exchanges the refresh token', () async {
+      final bodies = <String>[];
+      final flow = GitHubDeviceFlow(
+        clientId: 'cid',
+        client: MockClient((req) async {
+          bodies.add(req.body);
+          return json({
+            'access_token': 'ghu_new',
+            'expires_in': 28800,
+            'refresh_token': 'ghr_new',
+          });
+        }),
+      );
+      final c = await flow.refresh('ghr_old');
+      expect(c.token, 'ghu_new');
+      expect(c.refreshToken, 'ghr_new');
+      expect(bodies.single, contains('grant_type=refresh_token'));
+      expect(bodies.single, contains('refresh_token=ghr_old'));
+    });
+
+    test('an expired refresh token is a real sign-out', () async {
+      final flow = GitHubDeviceFlow(
+        clientId: 'cid',
+        client: MockClient(
+          (_) async => json({
+            'error': 'bad_refresh_token',
+            'error_description': 'The refresh token expired',
+          }),
+        ),
+      );
+      await expectLater(
+        flow.refresh('ghr_old'),
+        throwsA(
+          isA<GitHubApiException>().having(
+            (e) => e.errorCode,
+            'errorCode',
+            'bad_refresh_token',
           ),
         ),
       );

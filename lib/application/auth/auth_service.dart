@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:github_api/github_api.dart';
 
 import '../../domain/entities/entities.dart';
@@ -28,11 +29,23 @@ class AuthService {
 
   static const _userKey = 'github_user';
 
+  /// When the access token dies, when GitHub said it does. Not a secret: it
+  /// is a timestamp, and it has to be readable before the token is used.
+  static const _expiresAtKey = 'github_token_expires_at';
+
   /// Key of the authentication event trail (docs/09 §1).
   static const authLogKey = 'auth_log';
 
   /// How many events are kept.
   static const _authLogLimit = 30;
+
+  /// Short fingerprint of a token, for the event trail.
+  ///
+  /// The token itself must never be written anywhere but secure storage
+  /// (docs/09 §1). A hash prefix is enough to tell "GitHub rejected the token
+  /// we stored" from "we read back something else".
+  static String fingerprint(String token) =>
+      '${sha256.convert(utf8.encode(token))}'.substring(0, 8);
 
   /// Appends an authentication event so that a sign-out happening hours later
   /// can be explained without reproducing it. Logcat is useless here: the
@@ -74,14 +87,30 @@ class AuthService {
       await recordEvent('restore_no_token_stored');
       return null;
     }
+    // 期限切れが分かっているなら、断られるのを待たずに更新する。
+    final expired = await _tokenExpired();
+    if (expired) {
+      final renewed = await _refresh('token_expired');
+      if (renewed == null) return null;
+      return _userFor(renewed);
+    }
     try {
       final user = await gatewayFor(token).currentUser();
       await _cacheUser(user);
       return user;
     } on AuthFailure catch (e) {
-      // GitHub がこのトークンを拒否した。ここでだけ削除してよい。
-      await recordEvent('restore_rejected_by_github', detail: e.message);
-      await secure.delete(SecureStore.githubToken);
+      // 更新できるなら、拒否されただけではサインアウトにしない。
+      final renewed = await _refresh(
+        'rejected',
+        detail: '${e.message} fp=${fingerprint(token)}',
+      );
+      if (renewed != null) return _userFor(renewed);
+      // GitHub がこのトークンを拒否し、更新もできない。ここでだけ削除してよい。
+      await recordEvent(
+        'restore_rejected_by_github',
+        detail: '${e.message} fp=${fingerprint(token)} len=${token.length}',
+      );
+      await _clearCredentials();
       return null;
     } on AppFailure {
       final cached = await db.getValue(_userKey);
@@ -95,6 +124,82 @@ class AuthService {
       }
       rethrow;
     }
+  }
+
+  /// Whether the stored token is known to have expired.
+  Future<bool> _tokenExpired() async {
+    final raw = await db.getValue(_expiresAtKey);
+    if (raw is! String) return false;
+    final at = DateTime.tryParse(raw);
+    // 時計のずれと往復の時間を見込んで、少し手前で切り替える。
+    return at != null &&
+        DateTime.now().toUtc().isAfter(at.subtract(const Duration(minutes: 1)));
+  }
+
+  /// Renews the access token while the app is running (docs/04 §1.3b).
+  ///
+  /// A token that lives 8 hours can die with the app open, and the request
+  /// that hits the expiry gets a 401 like any other. Without this the user is
+  /// signed out mid-session even though the session could continue.
+  Future<String?> tryRefresh({String why = 'rejected_in_session'}) =>
+      _refresh(why);
+
+  /// Exchanges the stored refresh token for a new access token.
+  ///
+  /// Returns null when there is nothing to refresh or GitHub refuses, which
+  /// is the only case that is a real sign-out.
+  Future<String?> _refresh(String why, {String? detail}) async {
+    final String? refreshToken;
+    try {
+      refreshToken = await secure.read(SecureStore.githubRefreshToken);
+    } on SecureStorageFailure {
+      return null;
+    }
+    if (refreshToken == null) return null;
+    try {
+      final credentials = await deviceFlow().refresh(refreshToken);
+      await _storeCredentials(credentials);
+      await recordEvent('token_refreshed', detail: why);
+      return credentials.token;
+    } on GitHubApiException catch (e) {
+      await recordEvent(
+        'refresh_failed',
+        detail: '$why ${e.errorCode ?? ''} ${e.message}'.trim(),
+      );
+      if (e.statusCode == 0 && e.errorCode == 'timeout') return null;
+      await _clearCredentials();
+      return null;
+    } on SecureStorageFailure {
+      return null;
+    }
+  }
+
+  Future<GitHubUser> _userFor(String token) async {
+    final user = await gatewayFor(token).currentUser();
+    await _cacheUser(user);
+    return user;
+  }
+
+  Future<void> _storeCredentials(GitHubCredentials credentials) async {
+    await secure.write(SecureStore.githubToken, credentials.token);
+    final refresh = credentials.refreshToken;
+    if (refresh != null) {
+      await secure.write(SecureStore.githubRefreshToken, refresh);
+    } else {
+      await secure.delete(SecureStore.githubRefreshToken);
+    }
+    final expiresAt = credentials.expiresAt(DateTime.now().toUtc());
+    if (expiresAt == null) {
+      await db.deleteValue(_expiresAtKey);
+    } else {
+      await db.setValue(_expiresAtKey, expiresAt.toIso8601String());
+    }
+  }
+
+  Future<void> _clearCredentials() async {
+    await secure.delete(SecureStore.githubToken);
+    await secure.delete(SecureStore.githubRefreshToken);
+    await db.deleteValue(_expiresAtKey);
   }
 
   /// Device code of a sign-in still in progress, or null when there is none
@@ -153,8 +258,8 @@ class AuthService {
       throw NetworkFailure(e.message, cause: e);
     }
     switch (result) {
-      case DevicePollToken(:final token):
-        return _finishSignIn(token);
+      case DevicePollToken(:final credentials):
+        return _finishSignIn(credentials);
       case DevicePollPending():
         return null;
       case DevicePollFailed(:final error):
@@ -189,9 +294,9 @@ class AuthService {
     Future<void>? cancel,
     bool immediate = false,
   }) async {
-    final String token;
+    final GitHubCredentials credentials;
     try {
-      token = await deviceFlow().pollForToken(
+      credentials = await deviceFlow().pollForToken(
         code,
         cancel: cancel,
         immediate: immediate,
@@ -200,16 +305,21 @@ class AuthService {
       if (e.errorCode != 'cancelled') await clearPendingCode();
       throw AuthFailure(e.message, cause: e, code: e.errorCode);
     }
-    return _finishSignIn(token);
+    return _finishSignIn(credentials);
   }
 
-  Future<GitHubUser> _finishSignIn(String token) async {
-    await secure.write(SecureStore.githubToken, token);
-    await recordEvent('signed_in');
+  Future<GitHubUser> _finishSignIn(GitHubCredentials credentials) async {
+    await _storeCredentials(credentials);
+    // 何時間で切れるトークンなのかは、ここでしか分からない。
+    await recordEvent(
+      'signed_in',
+      detail:
+          'expires_in=${credentials.expiresIn ?? 'none'} '
+          'refresh=${credentials.refreshToken == null ? 'no' : 'yes'} '
+          'fp=${fingerprint(credentials.token)}',
+    );
     await clearPendingCode();
-    final user = await gatewayFor(token).currentUser();
-    await _cacheUser(user);
-    return user;
+    return _userFor(credentials.token);
   }
 
   Future<void> _cacheUser(GitHubUser u) => db.setValue(_userKey, {
@@ -222,7 +332,7 @@ class AuthService {
   /// Signs out: deletes the token, conversations and private-repo caches.
   /// Pending changes are deleted only when [deletePendingChanges] is true.
   Future<void> signOut({bool deletePendingChanges = false}) async {
-    await secure.delete(SecureStore.githubToken);
+    await _clearCredentials();
     await clearPendingCode();
     await db.deleteValue(_userKey);
     await db.deleteAllConversations();

@@ -24,6 +24,7 @@ GitHub の OAuth App を作成し、Device Flow を有効化する（Settings �
    Headers: Accept: application/json
    Body (form): client_id=<id>&device_code=<device_code>&grant_type=urn:ietf:params:oauth:grant-type:device_code
    → 成功: { access_token, token_type, scope }
+     期限付きのトークンでは expires_in, refresh_token, refresh_token_expires_in も返る（§1.3b）
    → error = "authorization_pending": 継続
    → error = "slow_down": interval += 5 して継続
    → error = "expired_token": AuthFailure("期限切れ。もう一度お試しください")
@@ -39,12 +40,14 @@ GitHub の OAuth App を作成し、Device Flow を有効化する（Settings �
 class GitHubDeviceFlow {
   GitHubDeviceFlow({required String clientId, http.Client? client});
   Future<DeviceCodeResponse> requestCode({List<String> scopes = const ['repo', 'read:user']});
-  /// interval に従いポーリングし、トークンを返す。cancel で中断可能。
-  Future<String> pollForToken(DeviceCodeResponse code, {Future<void>? cancel});
+  /// interval に従いポーリングし、資格情報を返す。cancel で中断可能。
+  Future<GitHubCredentials> pollForToken(DeviceCodeResponse code, {Future<void>? cancel});
+  /// refresh_token を新しい access_token と交換する。
+  Future<GitHubCredentials> refresh(String refreshToken);
 }
 ```
 
-- 401 が返った場合（トークン失効・取り消し）は `AuthFailure` を投げ、Presentation は認証画面へ遷移する。トークンは削除する。
+- 401 が返った場合（トークン失効・取り消し）は `AuthFailure` を投げる。更新できるなら更新を試み、それでも駄目なときだけトークンを削除して認証画面へ遷移する（§1.3b）。
 
 ### 1.3 ブラウザ往復をまたぐサインインの継続（実機で判明した要件）
 
@@ -56,6 +59,20 @@ Device Flow はユーザーがブラウザで認可する間、アプリが背�
 3. **バックグラウンドで進む処理は、書き戻す前にプロバイダの生存を確認する。** 復帰やポーリングは画面より長く動くため、`await` のたびに `ref.mounted` を確認してから `state` を更新する。破棄後に書き込むと `Cannot use the Ref ... after it has been disposed` で落ちる。
 
 セキュアストレージは `AndroidOptions(resetOnError: false)` で使う。既定値は復号に失敗した際に保存内容を全消去するため、サインイン状態が黙って失われる。読み書きの例外は握りつぶし、保存できない端末でもセッション内のサインインは成立させる。
+
+### 1.3b 期限付きトークンと更新（実機で判明した要件）
+
+実機では、サインインの数時間後に GitHub が `Bad credentials` を返し、サインアウトになる事象が起きた。端末の記録から、保存は成功していてGitHub側でトークンが無効になっていることが分かり、記録を増やして次のサインインを観察したところ、`expires_in=28800`（8時間）と `refresh_token` が返っていた。Client ID が OAuth App の形式（`Ov23…`）でも期限付きトークンが発行される。
+
+トークン応答に `expires_in` が含まれる場合、そのトークンは期限付きで、`refresh_token` が一緒に返る。`access_token` だけを取り出して残りを捨てると、期限が来るたびにサインインし直すことになる。そのため:
+
+- `expires_in` から求めた期限を `key_value` の `github_token_expires_at` に、`refresh_token` を **セキュアストレージ**に保存する（09 §1）。
+- 復帰時に期限を過ぎていれば、使う前に更新する。
+- 401 で拒否された場合も、更新できるならサインアウトにしない。`bad_refresh_token` が返ったときだけ本当のサインアウトとして扱う。
+- 更新は起動時だけでは足りない。8時間のトークンはアプリを開いたままでも切れるため、実行中の401（`onAuthFailure`）からも更新を試みる。
+- 期限の無いトークン（`expires_in` が無い）では何も変わらない。
+
+原因の切り分けのため、サインインと復帰の結果を `key_value` の `auth_log` に残す（最新30件）。記録するのは時刻・種別・`expires_in` の有無・トークンの**先頭8文字のハッシュ**までで、トークンそのものは書かない。設定画面の「サインインの記録」から読める。ここでハッシュを比べると、「GitHubが拒否した」のか「保存したものと違う値が読み戻った」のかを区別できる。
 
 ### 1.4 組織のリポジトリとOAuth Appのアクセス制限
 

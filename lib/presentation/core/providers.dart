@@ -354,11 +354,18 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// for instance) must not delete a token that is still valid on disk.
   Future<void> onAuthFailure() async {
     final hadToken = ref.read(githubTokenProvider) != null;
-    await ref
-        .read(authServiceProvider)
-        .recordEvent(
-          hadToken ? 'rejected_with_token' : 'failure_without_token',
-        );
+    final auth = ref.read(authServiceProvider);
+    if (hadToken) {
+      // 期限切れなら更新できる。アプリを開いたまま期限が来ても続く。
+      final renewed = await auth.tryRefresh();
+      if (renewed != null) {
+        ref.read(githubTokenProvider.notifier).set(renewed);
+        return;
+      }
+    }
+    await auth.recordEvent(
+      hadToken ? 'rejected_with_token' : 'failure_without_token',
+    );
     if (hadToken) {
       await ref.read(secureStoreProvider).delete(SecureStore.githubToken);
     }
