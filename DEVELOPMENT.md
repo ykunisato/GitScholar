@@ -1,22 +1,12 @@
-# GitScholar
+# GitScholar — 開発者向け
 
-GitHub 上の論文・研究ノート・Jupyter Notebook・分析コードを iPad / Android で閲覧・編集し、AI に調査や修正を依頼できる研究者向けワークスペースです。
+GitScholar のビルド・実機テスト・配布の手順です。アプリの使い方は [README.md](README.md) を見てください。
 
 設計書は [docs/](docs/README.md)、AI コーディングエージェント向けの作業ルールは [CLAUDE.md](CLAUDE.md) にあります。
 
 プライバシーポリシーは [PRIVACY.md](PRIVACY.md)、ライセンスは MIT（[LICENSE](LICENSE)）です。
 
-## 主な機能
-
-- GitHub サインイン（OAuth Device Flow）とリポジトリ選択
-- ファイルツリー、PDF・Markdown（数式・相対リンク）・Notebook・コード・画像の表示
-- テキスト・Markdown・Notebook の編集、差分表示、コミットとプッシュ（競合検出つき）
-- AI パネル: 開いているファイルへの質問、リポジトリ検索、変更提案と承認、コミット依頼
-- AI の提供元は Anthropic、OpenAI、OpenRouter、OpenAI互換の自前サーバから選択（設定画面、鍵は提供元ごとに保存）
-- GitHub Discussion / Issues の閲覧、コメント投稿、絵文字リアクション
-- PDF のマーカーと、PDFと同名の Markdown へのメモ追記
-- リポジトリのピン留め（最大10件）とオフライン保存
-- Jupyter Server / JupyterHub でのセル実行、Quarto render（任意）
+機能の一覧は [README.md](README.md) にあります。
 
 ## 必要なもの
 

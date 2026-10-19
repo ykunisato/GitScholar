@@ -78,7 +78,7 @@ Device Flow はユーザーがブラウザで認可する間、アプリが背�
 
 Organization がサードパーティ製 OAuth App を制限している場合、承認されるまでその組織のリポジトリは `GET /user/repos` の応答に**含まれない**。403 などのエラーにはならないため、アプリからは「そのリポジトリが存在しない」ようにしか見えない。原因の切り分けが難しいので注意する。
 
-承認は組織単位で、オーナーが Settings → Third-party Access → OAuth app policy から一度行えばメンバー全員に適用される。手順と利用者への案内は `README.md` を参照。
+承認は組織単位で、オーナーが Settings → Third-party Access → OAuth app policy から一度行えばメンバー全員に適用される。オーナー向けの手順は `DEVELOPMENT.md`、利用者向けの案内は `README.md` を参照。
 
 スコープを増やしても解決しない。`repo` は権限の話であり、この制限は組織のポリシーだからである。
 
